@@ -4,6 +4,7 @@ import { validateRequest } from "../../middleware/validateRequest";
 import { auth } from "../../middleware/checkAuth";
 import { AuthController } from "./auth.controller";
 import { UserValidation } from "./auth.validation";
+import { uploadSingle } from "../../middleware/upload";
 
 const router = Router();
 
@@ -36,17 +37,25 @@ router.get(
   AuthController.getMe,
 );
 
+// router.patch(
+//   "/update-profile",
+//   auth(
+//     Role.CUSTOMER,
+//     Role.TECHNICIAN,
+//     Role.ZONE_MANAGER,
+//     Role.ADMIN,
+//     Role.SUPER_ADMIN,
+//   ),
+//   validateRequest(UserValidation.UpdateProfileZodSchema),
+//   AuthController.updateProfile,
+// );
+
+
 router.patch(
-  "/update-profile",
-  auth(
-    Role.CUSTOMER,
-    Role.TECHNICIAN,
-    Role.ZONE_MANAGER,
-    Role.ADMIN,
-    Role.SUPER_ADMIN,
-  ),
-  validateRequest(UserValidation.UpdateProfileZodSchema),
-  AuthController.updateProfile,
+  '/update-profile', 
+  auth(Role.CUSTOMER, Role.TECHNICIAN, Role.ZONE_MANAGER, Role.ADMIN, Role.SUPER_ADMIN), 
+  uploadSingle, 
+  AuthController.updateProfile
 );
 
 router.post("/refresh-token", AuthController.refreshToken);

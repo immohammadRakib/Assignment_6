@@ -201,8 +201,32 @@ const resetPassword = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const updateProfile = catchAsync(async (req: Request, res: Response) => {
-  const user = (req as any).user;
+// const updateProfile = catchAsync(async (req: Request, res: Response) => {
+//   const user = (req as any).user;
+
+//   const userId = user?.id || user?.userId;
+//   const role = user?.role;
+
+//   if (!userId || !role) {
+//     throw new Error(
+//       "Authentication failed! Active user session contexts are missing.",
+//     );
+//   }
+
+//   const result = await AuthService.updateProfileInDB(userId, role, req.body);
+
+//   sendResponse(res, {
+//     statusCode: httpStatus.OK,
+//     success: true,
+//     message:
+//       "User and core structural profile synchronized and updated successfully!",
+//     data: result,
+//   });
+// });
+
+// 🛠️ req: Request পরিবর্তন করে req: any করা হয়েছে
+const updateProfile = catchAsync(async (req: any, res: Response) => {
+  const user = req.user; // এখন (req as any).user লেখাও লাগবে না, সরাসরি পাবেন
 
   const userId = user?.id || user?.userId;
   const role = user?.role;
@@ -213,16 +237,24 @@ const updateProfile = catchAsync(async (req: Request, res: Response) => {
     );
   }
 
-  const result = await AuthService.updateProfileInDB(userId, role, req.body);
+  const payload = { ...req.body };
+
+  // ⚡ এখন আর এখানে কোনো লাল দাগ থাকবে না
+  if (req.file?.path) {
+    payload.profileImage = req.file.path;
+  }
+
+  const result = await AuthService.updateProfileInDB(userId, role, payload);
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
-    message:
-      "User and core structural profile synchronized and updated successfully!",
+    message: "User and core structural profile synchronized and updated successfully!",
     data: result,
   });
 });
+
+
 
 const getAllUsers = catchAsync(async (req: Request, res: Response) => {
   const incomingRole = req.query.role as string;
