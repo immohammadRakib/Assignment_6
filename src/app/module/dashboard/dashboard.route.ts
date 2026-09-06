@@ -5,7 +5,6 @@ import { DashboardController } from "./dashboard.controller";
 
 const router = express.Router();
 
-// 🛡️ কাস্টমার, অপারেটর, টেকনিশিয়ান, ম্যানেজার, এডমিন— সবাই এই রাউটে হিট করতে পারবে!
 router.get(
   "/overview",
   auth(

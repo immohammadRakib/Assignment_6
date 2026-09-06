@@ -1,4 +1,3 @@
-// ১. কাস্টমার ড্যাশবোর্ড ইন্টারফেস
 export interface ICustomerDashboardData {
   role: "CUSTOMER";
   currentBalance: number;
@@ -8,7 +7,6 @@ export interface ICustomerDashboardData {
   myResolvedComplaints: number;
 }
 
-// ২. পাওয়ার অপারেটর ড্যাশবোর্ড ইন্টারফেস
 export interface IOperatorDashboardData {
   role: "POWER_OPERATOR";
   totalMyFeeders: number;
@@ -16,7 +14,6 @@ export interface IOperatorDashboardData {
   operatorSubstationId: string;
 }
 
-// 👑 ৩. জোন ম্যানেজার ড্যাশবোর্ড ইন্টারফেস (সম্পূর্ণ আলাদা)
 export interface IZoneManagerDashboardData {
   role: "ZONE_MANAGER";
   zoneId: string;
@@ -26,13 +23,12 @@ export interface IZoneManagerDashboardData {
   pendingComplaints: number;
 }
 
-// 👑 ৪. এডমিন এবং সুপার এডমিন ড্যাশবোর্ড ইন্টারফেস (আপডেটেড)
 export interface IAdminDashboardData {
   role: "ADMIN" | "SUPER_ADMIN";
   totalCustomers: number;
   totalTechnicians: number;
-  totalZoneManagers: number; // 👈 অ্যারো ডাটা টাইপ
-  totalPowerOperators: number; // 👈 অ্যারো ডাটা টাইপ
+  totalZoneManagers: number; 
+  totalPowerOperators: number; 
   activeLoadShedding: number;
   pendingComplaints: number;
   resolvedComplaints: number;
@@ -40,7 +36,6 @@ export interface IAdminDashboardData {
   gridHealthScore: string;
 }
 
-// গ্লোবাল রেসপন্স ইন্টারফেস
 export interface IDashboardOverviewResponse {
   success: boolean;
   message: string;

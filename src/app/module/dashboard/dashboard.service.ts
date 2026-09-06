@@ -2,9 +2,6 @@ import { OutageStatus, OutageType } from "../../../generated/prisma/enums";
 import { prisma } from "../../lib/prisma";
 
 const getDashboardOverviewFromDB = async (userId: string, role: string) => {
-  // ----------------------------------------------------
-  // 👑 ১. কাস্টমারের ড্যাশবোর্ড লজিক (CUSTOMER)
-  // ----------------------------------------------------
   if (role === "CUSTOMER") {
     const customer = await prisma.customer.findUnique({
       where: { userId },
@@ -38,9 +35,6 @@ const getDashboardOverviewFromDB = async (userId: string, role: string) => {
     };
   }
 
-  // ----------------------------------------------------
-  // 👑 ২. পাওয়ার অপারেটরের ড্যাশবোর্ড লজিক (POWER_OPERATOR)
-  // ----------------------------------------------------
   if (role === "POWER_OPERATOR") {
     const operator = await prisma.powerOperator.findUnique({
       where: { userId },
@@ -48,7 +42,9 @@ const getDashboardOverviewFromDB = async (userId: string, role: string) => {
     });
 
     if (!operator || !operator.substationId) {
-      throw new Error("Power Operator profile or assigned Substation not found!");
+      throw new Error(
+        "Power Operator profile or assigned Substation not found!",
+      );
     }
 
     const totalMyFeeders = await prisma.feeder.count({
@@ -71,9 +67,6 @@ const getDashboardOverviewFromDB = async (userId: string, role: string) => {
     };
   }
 
-  // ----------------------------------------------------
-  // 👑 ৩. জোন ম্যানেজারের ড্যাশবোর্ড লজিক (ZONE_MANAGER)
-  // ----------------------------------------------------
   if (role === "ZONE_MANAGER") {
     const manager = await prisma.zoneManager.findUnique({
       where: { userId },
@@ -84,27 +77,39 @@ const getDashboardOverviewFromDB = async (userId: string, role: string) => {
       throw new Error("Zone Manager profile or assigned Zone not found!");
     }
 
-    // 🛡️ টাইপ সেফটির জন্য জোন ম্যানেজার জোনের আইডি 'as string' কাস্ট করা হয়েছে
-    const [myZoneCustomers, myZoneTechnicians, myZoneActiveOutages, myZonePendingReports] = await Promise.all([
+    const [
+      myZoneCustomers,
+      myZoneTechnicians,
+      myZoneActiveOutages,
+      myZonePendingReports,
+    ] = await Promise.all([
       prisma.customer.count({
-        where: { 
-          area: { feeder: { substation: { zoneId: manager.zoneId as string } } }, 
-          isDeleted: false 
+        where: {
+          area: {
+            feeder: { substation: { zoneId: manager.zoneId as string } },
+          },
+          isDeleted: false,
         },
       }),
       prisma.technician.count({
         where: { zoneId: manager.zoneId as string, isDeleted: false },
       }),
       prisma.outage.count({
-        where: { 
-          area: { feeder: { substation: { zoneId: manager.zoneId as string } } }, 
-          status: OutageStatus.ACTIVE 
+        where: {
+          area: {
+            feeder: { substation: { zoneId: manager.zoneId as string } },
+          },
+          status: OutageStatus.ACTIVE,
         },
       }),
       prisma.outageReport.count({
-        where: { 
-          customer: { area: { feeder: { substation: { zoneId: manager.zoneId as string } } } }, 
-          status: OutageStatus.PENDING 
+        where: {
+          customer: {
+            area: {
+              feeder: { substation: { zoneId: manager.zoneId as string } },
+            },
+          },
+          status: OutageStatus.PENDING,
         },
       }),
     ]);
@@ -119,9 +124,6 @@ const getDashboardOverviewFromDB = async (userId: string, role: string) => {
     };
   }
 
-  // ----------------------------------------------------
-  // 👑 ৪. এডমিন এবং সুপার এডমিনের ড্যাশবোর্ড লজিক (ADMIN / SUPER_ADMIN)
-  // ----------------------------------------------------
   if (role === "ADMIN" || role === "SUPER_ADMIN") {
     const [
       globalCustomers,
@@ -137,7 +139,9 @@ const getDashboardOverviewFromDB = async (userId: string, role: string) => {
       prisma.technician.count({ where: { isDeleted: false } }),
       prisma.zoneManager.count({ where: { isDeleted: false } }),
       prisma.powerOperator.count({ where: { isDeleted: false } }),
-      prisma.outage.count({ where: { type: OutageType.SCHEDULED, status: OutageStatus.ACTIVE } }),
+      prisma.outage.count({
+        where: { type: OutageType.SCHEDULED, status: OutageStatus.ACTIVE },
+      }),
       prisma.outageReport.count({ where: { status: OutageStatus.PENDING } }),
       prisma.outageReport.count({ where: { status: OutageStatus.RESTORED } }),
       prisma.customer.aggregate({ _sum: { balance: true } }),
@@ -153,7 +157,8 @@ const getDashboardOverviewFromDB = async (userId: string, role: string) => {
       pendingComplaints: globalPendingReports,
       resolvedComplaints: globalResolvedReports,
       totalRevenue: walletAggregation._sum.balance || 0,
-      gridHealthScore: globalActiveOutages > 0 ? "Warning - Active Outages" : "100% Stable",
+      gridHealthScore:
+        globalActiveOutages > 0 ? "Warning - Active Outages" : "100% Stable",
     };
   }
 

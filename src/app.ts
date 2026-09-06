@@ -17,8 +17,11 @@ import { GridRoutes } from "./app/module/grid/grid.route";
 import { WalletRoutes } from "./app/module/wallet/wallet.route";
 import { AuditLogRoutes } from "./app/module/audit/auditLog.route";
 import { DashboardRoutes } from "./app/module/dashboard/dashboard.route";
+import { globalApiRateLimiter } from "./app/middleware/rateLimiter";
 
 const app: Application = express();
+
+app.set("trust proxy", true);
 
 app.use(
   cors({
@@ -33,6 +36,8 @@ app.use(express.urlencoded({ extended: true }));
 // Middleware to parse JSON bodies
 app.use(express.json());
 app.use(cookieParser());
+
+app.use("/api/v1", globalApiRateLimiter);
 
 app.use("/api/v1/auth", AuthRoutes);
 
