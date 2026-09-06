@@ -1,7 +1,12 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import crypto from "crypto";
-import express, { type Application, type Request, type Response, NextFunction } from "express";
+import express, {
+  type Application,
+  type Request,
+  type Response,
+  NextFunction,
+} from "express";
 import httpStatus from "http-status";
 import config from "./app/config";
 import { globalErrorHandler } from "./app/middleware/globalErrorHandler";
@@ -14,10 +19,10 @@ import { WalletRoutes } from "./app/module/wallet/wallet.route";
 const app: Application = express();
 
 app.use(
-	cors({
-		origin: config.frontend_url,
-		credentials: true,
-	}),
+  cors({
+    origin: config.frontend_url,
+    credentials: true,
+  }),
 );
 
 // Enable URL-encoded form data parsing
@@ -31,46 +36,39 @@ app.use("/api/v1/auth", AuthRoutes);
 
 app.use("/api/v1/outage", OutageRoutes);
 
-app.use('/api/v1/wallet', WalletRoutes);
+app.use("/api/v1/wallet", WalletRoutes);
 
-app.use('/api/v1/grid', GridRoutes);
+app.use("/api/v1/grid", GridRoutes);
 
-app.get("/test", async (req: Request, res: Response, next : NextFunction) => {
+app.get("/test", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // 100000 > 999999 > 1000000
+    const otp = crypto.randomInt(100000, 1000000); // 1, 2, 3, 4, 5, 6,7,8 ,9, 10 => X-11
 
-	try {
+    // await redisClient.set("forgot-password-otp:patient1@gmail.com", "123456", {
+    // 	expiration : {
+    // 		type : "EX",
+    // 		value : 60
+    // 	}
+    // })
 
-		// 100000 > 999999 > 1000000
-			const otp = crypto.randomInt(100000, 1000000) // 1, 2, 3, 4, 5, 6,7,8 ,9, 10 => X-11
-		
-			// await redisClient.set("forgot-password-otp:patient1@gmail.com", "123456", {
-			// 	expiration : {
-			// 		type : "EX",
-			// 		value : 60
-			// 	}
-			// })
-
-		
-
-
-		res.status(httpStatus.OK).json({
-			success: true,
-			message: "Welcome to Smart Power Grid Management System Backend",
-			data : otp
-		});
-	} catch (error) {
-		console.log(error);
-		next(error)
-	}
-})
-
-
+    res.status(httpStatus.OK).json({
+      success: true,
+      message: "Welcome to Smart Power Grid Management System Backend",
+      data: otp,
+    });
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+});
 
 // Basic route
 app.get("/", async (req: Request, res: Response) => {
-	res.status(httpStatus.OK).json({
-		success: true,
-		message: "Welcome to Smart Power Grid Management System Backend",
-	});
+  res.status(httpStatus.OK).json({
+    success: true,
+    message: "Welcome to Smart Power Grid Management System Backend",
+  });
 });
 
 app.use(globalErrorHandler);

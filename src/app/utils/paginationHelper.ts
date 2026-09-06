@@ -2,7 +2,7 @@ type IOptions = {
   page?: number;
   limit?: number;
   sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+  sortOrder?: "asc" | "desc";
 };
 
 type IOptionsResult = {
@@ -10,16 +10,16 @@ type IOptionsResult = {
   limit: number;
   skip: number;
   sortBy: string;
-  sortOrder: 'asc' | 'desc';
+  sortOrder: "asc" | "desc";
 };
 
 const calculatePagination = (options: IOptions): IOptionsResult => {
   const page = Number(options.page) || 1;
-  const limit = Number(options.limit) || 5; // 💡 রিকোয়ারমেন্ট অনুযায়ী প্রতি পেজে ৫টি করে ডেটা লক করা হলো
+  const limit = Number(options.limit) || 5;
   const skip = (page - 1) * limit;
 
-  const sortBy = options.sortBy || 'createdAt';
-  const sortOrder = options.sortOrder || 'desc';
+  const sortBy = options.sortBy || "createdAt";
+  const sortOrder = options.sortOrder || "desc";
 
   return {
     page,
