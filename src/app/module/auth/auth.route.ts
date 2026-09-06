@@ -55,7 +55,13 @@ router.get(
   auth(Role.ADMIN, Role.SUPER_ADMIN), // কাস্টমার বা টেকনিশিয়ান এই রাউটে ঢুকতে পারবে না
   AuthController.getAllUsers
 );
-  
+
+router.patch(
+  "/user-status/:userId",
+  auth(Role.ADMIN, Role.SUPER_ADMIN), // কাস্টমার বা টেকনিশিয়ান এখানে হিট করলে ওখানেই ব্লক খাবে
+  AuthController.updateUserStatus
+);
+
 
 export const AuthRoutes = router;
 	

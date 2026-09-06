@@ -1,7 +1,7 @@
 
 
 
-import type { Role } from "../../../generated/prisma/browser";
+import type { Role, UserStatus } from "../../../generated/prisma/browser";
 
 export interface ILoginUserPayload {
 	email: string;
@@ -75,4 +75,17 @@ export interface IUserQueryFilters {
   substationId?: string;       // সাবস্টেশন ফিল্টার
   zoneId?: string;             // জোন ফিল্টার
   powerAuthorityId?: string;   // পাওয়ার অথরিটি ফিল্টার
+}
+
+
+export interface IUpdateUserStatusPayload {
+  status: string; // ইনপুট হিসেবে কাঁচা স্ট্রিং আসবে (যেমন: 'blocked', 'ACTIVE')
+}
+
+// ২. সার্ভিস মেথডের ইন্টারনাল প্যারামিটারের জন্য ইন্টারফেস
+export interface IUpdateUserStatusParams {
+  adminId: string;
+  adminRole: string;
+  targetUserId: string;
+  status: UserStatus; // এটি প্রিজমার ভ্যালিড এনাম টাইপ
 }

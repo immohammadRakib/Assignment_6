@@ -23,6 +23,7 @@ import type {
   IResetPasswordPayload,
   IUpdateProfilePayload,
   IUserQueryFilters,
+  IUpdateUserStatusParams,
 } from "./auth.interface";
 import { redisClient } from "../../lib/redis";
 import { TokenPayload } from "google-auth-library";
@@ -30,10 +31,13 @@ import { googleClient } from "../../lib/googleAuth";
 import { paginationHelper } from "../../utils/paginationHelper";
 import { Prisma } from "../../../generated/prisma/browser";
 
-// const registerPatient = async (payload: IRegisterPatientPayload) => {
-//   const { name, password } = payload;
+
+// const registerUser = async (payload: IRegisterUserPayload) => {
+//   const { name, role, password } = payload;
+  
 //   const email = payload.email.trim().toLowerCase();
 
+//   // ১. ইমেইল অলরেডি ডাটাবেসে আছে কিনা চেক করা
 //   const isUserExists = await prisma.user.findUnique({
 //     where: { email },
 //   });
@@ -42,30 +46,94 @@ import { Prisma } from "../../../generated/prisma/browser";
 //     throw new Error("User with this email already exists");
 //   }
 
-//   const hashedPassword = await bcrypt.hash(password, 8);
+//   // ২. পাসওয়ার্ড হ্যাশিং (গুগল সাইন-ইন হলে পাসওয়ার্ড ছাড়া আসবে, তাই এটি নাল হ্যান্ডেল করবে)
+//   const hashedPassword = password ? await bcrypt.hash(password, 8) : null;
 
-//   const createdUser = await prisma.user.create({
-//     data: {
-//       name,
-//       email,
-//       password: hashedPassword,
-//       role: Role.PATIENT,
-//       status: UserStatus.ACTIVE,
-//       emailVerified: false,
-//       patient: {
-//         create: { name, email },
+//   // ৩. প্রিসমা ট্রানজেকশন দিয়ে শুধুমাত্র বেসিক প্রোফাইল খালি রেখে ইনিশিয়ালাইজ করা
+//   const createdUser = await prisma.$transaction(async (tx) => {
+    
+//     // ক) মেইন ইউজার টেবিল ক্রিয়েশন
+//     const user = await tx.user.create({
+//       data: {
+//         name,
+//         email,
+//         password: hashedPassword,
+//         role: role as Role,
+//         status: UserStatus.ACTIVE,
 //       },
-//     },
-//     omit: { password: true },
-//     include: { patient: true },
+//     });
+
+//     let profileData = null;
+
+//     // খ) সুইচ কেস - শুধুমাত্র রোল অনুযায়ী একদম খালি (Empty) প্রোফাইল অবজেক্ট তৈরি
+//     switch (role) {
+//       case Role.CUSTOMER:
+//         profileData = await tx.customer.create({
+//           data: {
+//             userId: user.id,
+//             accountNumber: `ACC-${Date.now().toString().slice(-6)}`, // সাময়িক ট্র্যাকিং আইডি
+//             meterNumber: `MTR-${Date.now().toString().slice(-6)}`,
+//             balance: 0.0,
+//             areaId: null,           // টেবিল সম্পূর্ণ খালি থাকবে
+//             billingAddress: null,
+//           },
+//         });
+//         break;
+
+//       case Role.TECHNICIAN:
+//         profileData = await tx.technician.create({
+//           data: {
+//             userId: user.id,
+//             status: "AVAILABLE",
+//             zoneId: null,           // টেবিল সম্পূর্ণ খালি থাকবে
+//             specialization: null,
+//           },
+//         });
+//         break;
+
+//       case Role.ZONE_MANAGER:
+//         profileData = await tx.zoneManager.create({
+//           data: {
+//             userId: user.id,
+//             zoneId: null,           // টেবিল সম্পূর্ণ খালি থাকবে
+//             officeRoomNo: null,
+//           },
+//         });
+//         break;
+
+//       case Role.POWER_OPERATOR:
+//         profileData = await tx.powerOperator.create({
+//           data: {
+//             userId: user.id,
+//             substationId: null,     // টেবিল সম্পূর্ণ খালি থাকবে
+//             shift: null,
+//           },
+//         });
+//         break;
+
+//       case Role.ADMIN:
+//       case Role.SUPER_ADMIN:
+//         // এডমিনদের আলাদা কোনো চাইল্ড টেবিল নেই
+//         break;
+
+//       default:
+//         throw new Error("Invalid User Role provided");
+//     }
+
+//     return {
+//       user,
+//       profile: profileData,
+//     };
 //   });
 
-//   const { patient, ...user } = createdUser;
+//   // ৪. রেসপন্স এবং JWT টোকেন জেনারেট করা
+//   const { password: _, ...userResponse } = createdUser.user;
+
 //   const jwtPayload = {
-//     userId: user.id,
-//     name: user.name,
-//     email: user.email,
-//     role: user.role,
+//     userId: userResponse.id,
+//     name: userResponse.name,
+//     email: userResponse.email,
+//     role: userResponse.role,
 //   };
 
 //   const accessToken = jwtUtils.createToken(
@@ -81,135 +149,12 @@ import { Prisma } from "../../../generated/prisma/browser";
 //   );
 
 //   return {
-//     user,
-//     patient,
+//     user: userResponse,
+//     profile: createdUser.profile, 
 //     accessToken,
 //     refreshToken,
 //   };
 // };
-
-const registerUser = async (payload: IRegisterUserPayload) => {
-  const { name, role, password } = payload;
-  const email = payload.email.trim().toLowerCase();
-
-  // ১. ইমেইল অলরেডি ডাটাবেসে আছে কিনা চেক করা
-  const isUserExists = await prisma.user.findUnique({
-    where: { email },
-  });
-
-  if (isUserExists) {
-    throw new Error("User with this email already exists");
-  }
-
-  // ২. পাসওয়ার্ড হ্যাশিং (গুগল সাইন-ইন হলে পাসওয়ার্ড ছাড়া আসবে, তাই এটি নাল হ্যান্ডেল করবে)
-  const hashedPassword = password ? await bcrypt.hash(password, 8) : null;
-
-  // ৩. প্রিসমা ট্রানজেকশন দিয়ে শুধুমাত্র বেসিক প্রোফাইল খালি রেখে ইনিশিয়ালাইজ করা
-  const createdUser = await prisma.$transaction(async (tx) => {
-    
-    // ক) মেইন ইউজার টেবিল ক্রিয়েশন
-    const user = await tx.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role: role as Role,
-        status: UserStatus.ACTIVE,
-      },
-    });
-
-    let profileData = null;
-
-    // খ) সুইচ কেস - শুধুমাত্র রোল অনুযায়ী একদম খালি (Empty) প্রোফাইল অবজেক্ট তৈরি
-    switch (role) {
-      case Role.CUSTOMER:
-        profileData = await tx.customer.create({
-          data: {
-            userId: user.id,
-            accountNumber: `ACC-${Date.now().toString().slice(-6)}`, // সাময়িক ট্র্যাকিং আইডি
-            meterNumber: `MTR-${Date.now().toString().slice(-6)}`,
-            balance: 0.0,
-            areaId: null,           // টেবিল সম্পূর্ণ খালি থাকবে
-            billingAddress: null,
-          },
-        });
-        break;
-
-      case Role.TECHNICIAN:
-        profileData = await tx.technician.create({
-          data: {
-            userId: user.id,
-            status: "AVAILABLE",
-            zoneId: null,           // টেবিল সম্পূর্ণ খালি থাকবে
-            specialization: null,
-          },
-        });
-        break;
-
-      case Role.ZONE_MANAGER:
-        profileData = await tx.zoneManager.create({
-          data: {
-            userId: user.id,
-            zoneId: null,           // টেবিল সম্পূর্ণ খালি থাকবে
-            officeRoomNo: null,
-          },
-        });
-        break;
-
-      case Role.POWER_OPERATOR:
-        profileData = await tx.powerOperator.create({
-          data: {
-            userId: user.id,
-            substationId: null,     // টেবিল সম্পূর্ণ খালি থাকবে
-            shift: null,
-          },
-        });
-        break;
-
-      case Role.ADMIN:
-      case Role.SUPER_ADMIN:
-        // এডমিনদের আলাদা কোনো চাইল্ড টেবিল নেই
-        break;
-
-      default:
-        throw new Error("Invalid User Role provided");
-    }
-
-    return {
-      user,
-      profile: profileData,
-    };
-  });
-
-  // ৪. রেসপন্স এবং JWT টোকেন জেনারেট করা
-  const { password: _, ...userResponse } = createdUser.user;
-
-  const jwtPayload = {
-    userId: userResponse.id,
-    name: userResponse.name,
-    email: userResponse.email,
-    role: userResponse.role,
-  };
-
-  const accessToken = jwtUtils.createToken(
-    jwtPayload,
-    config.jwt_access_secret,
-    config.jwt_access_expires_in as SignOptions,
-  );
-
-  const refreshToken = jwtUtils.createToken(
-    jwtPayload,
-    config.jwt_refresh_secret,
-    config.jwt_refresh_expires_in as SignOptions,
-  );
-
-  return {
-    user: userResponse,
-    profile: createdUser.profile, 
-    accessToken,
-    refreshToken,
-  };
-};
 
 
 
@@ -324,6 +269,132 @@ const registerUser = async (payload: IRegisterUserPayload) => {
 // 	};
 
 // }
+
+const registerUser = async (payload: IRegisterUserPayload) => {
+  const { name, role, password } = payload;
+  
+  const email = payload.email.trim().toLowerCase();
+
+  // ১. ইমেইল অলরেডি ডাটাবেসে আছে কিনা চেক করা
+  const isUserExists = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (isUserExists) {
+    throw new Error("User with this email already exists");
+  }
+
+  // 👑 ২. রোল রেস্ট্রিকশন লক (অ্যাডমিন এবং সুপার অ্যাডমিন রেজিস্ট্রেশন চিরতরে ব্লক) [THE SECURITY LOCK]
+  if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
+    throw new Error("Registration for ADMIN or SUPER_ADMIN roles is strictly prohibited from public endpoints!");
+  }
+
+  // ৩. পাসওয়ার্ড হ্যাশিং
+  const hashedPassword = password ? await bcrypt.hash(password, 8) : null;
+
+  // ৪. প্রিসমা ট্রানজেকশন দিয়ে শুধুমাত্র বেসিক প্রোফাইল খালি রেখে ইনিশিয়ালাইজ করা
+  const createdUser = await prisma.$transaction(async (tx) => {
+    
+    // ক) মেইন ইউজার টেবিল ক্রিয়েশন
+    const user = await tx.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role: role as Role,
+        status: UserStatus.ACTIVE,
+      },
+    });
+
+    let profileData = null;
+
+    // খ) সুইচ কেস - শুধুমাত্র অনুমোদিত ৪টি রোলের জন্য খালি প্রোফাইল অবজেক্ট তৈরি
+    switch (role) {
+      case Role.CUSTOMER:
+        profileData = await tx.customer.create({
+          data: {
+            userId: user.id,
+            accountNumber: `ACC-${Date.now().toString().slice(-6)}`,
+            meterNumber: `MTR-${Date.now().toString().slice(-6)}`,
+            balance: 0.0,
+            areaId: null,
+            billingAddress: null,
+          },
+        });
+        break;
+
+      case Role.TECHNICIAN:
+        profileData = await tx.technician.create({
+          data: {
+            userId: user.id,
+            status: "AVAILABLE",
+            zoneId: null,
+            specialization: null,
+          },
+        });
+        break;
+
+      case Role.ZONE_MANAGER:
+        profileData = await tx.zoneManager.create({
+          data: {
+            userId: user.id,
+            zoneId: null,
+            officeRoomNo: null,
+          },
+        });
+        break;
+
+      case Role.POWER_OPERATOR:
+        profileData = await tx.powerOperator.create({
+          data: {
+            userId: user.id,
+            substationId: null,
+            shift: null,
+          },
+        });
+        break;
+
+      // এখানে আর ADMIN বা SUPER_ADMIN এর কেস রাখারই দরকার নেই, কারণ তারা উপরেই ব্লকড!
+      default:
+        throw new Error("Invalid or unauthorized User Role provided");
+    }
+
+    return {
+      user,
+      profile: profileData,
+    };
+  });
+
+  // ৫. রেসপন্স এবং JWT টোকেন জেনারেট করা
+  const { password: _, ...userResponse } = createdUser.user;
+
+  const jwtPayload = {
+    userId: userResponse.id,
+    name: userResponse.name,
+    email: userResponse.email,
+    role: userResponse.role,
+  };
+
+  const accessToken = jwtUtils.createToken(
+    jwtPayload,
+    config.jwt_access_secret,
+    config.jwt_access_expires_in as SignOptions,
+  );
+
+  const refreshToken = jwtUtils.createToken(
+    jwtPayload,
+    config.jwt_refresh_secret,
+    config.jwt_refresh_expires_in as SignOptions,
+  );
+
+  return {
+    user: userResponse,
+    profile: createdUser.profile, 
+    accessToken,
+    refreshToken,
+  };
+};
+
 
  const verifyEmail = async (payload : IVerifyEmailPayload) => {
 	const otp = payload.otp;
@@ -1318,6 +1389,38 @@ const getAllUsersFromDB = async (filters: IUserQueryFilters, options: any) => {
 };
 
 
+const updateUserStatusInDB = async (params: IUpdateUserStatusParams) => {
+  // ⚡ ইন্টারফেসের প্রপার্টি অনুযায়ী adminId সহ পারফেক্টলি ডিকনস্ট্রাক্ট করা হলো
+  const { adminId, adminRole, targetUserId, status } = params;
+  
+  // ১. চেক করা—যাকে ব্লক বা একটিভ করা হচ্ছে সে আদেও ডাটাবেসে আছে কিনা
+  const targetUser = await prisma.user.findUnique({
+    where: { id: targetUserId }
+  });
+
+  if (!targetUser) {
+    throw new Error("Target user profile not found in the grid registry!");
+  }
+
+  // 🔒 ২. আলটিমেট সিকিউরিটি লক: কোনো সাধারণ ADMIN যেন একজন SUPER_ADMIN-কে ব্লক করতে না পারে
+  if (targetUser.role === Role.SUPER_ADMIN && adminRole !== Role.SUPER_ADMIN) {
+    throw new Error("Access Denied! Standard Administrators are unauthorized to modify a Super Administrator status.");
+  }
+
+  // ৩. ডাটাবেসে ইউজারের স্ট্যাটাস আপডেট করা (ACTIVE / BLOCKED)
+  const updatedUser = await prisma.user.update({
+    where: { id: targetUserId },
+    data: {
+      status: status // প্রিজমা এনাম ভ্যালু সরাসরি বসে যাবে
+    }
+  });
+
+  // 🛡️ টাইপ-সেফ মেথডে পাসওয়ার্ড রেসপন্স থেকে ডিলিট করা (যেন omit কোন লাল দাগ না দেয়)
+  const { password, ...userWithoutPassword } = updatedUser as any;
+
+  return userWithoutPassword;
+};
+
 
 
 export const AuthService = {
@@ -1331,4 +1434,5 @@ export const AuthService = {
   verifyEmail,
   updateProfileInDB,
   getAllUsersFromDB,
+  updateUserStatusInDB
 };

@@ -4,6 +4,7 @@ import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
 import type { IRequestUser } from "./auth.interface";
 import { AuthService } from "./auth.service";
+import { UserStatus } from "../../../generated/prisma/browser";
 
 const registerPatient = catchAsync(async (req: Request, res: Response) => {
 		const payload = req.body;
@@ -295,6 +296,42 @@ const getAllUsers = catchAsync(async (req: Request, res: Response) => {
 
 
 
+const updateUserStatus = catchAsync(async (req: Request, res: Response) => {
+  const admin = (req as any).user; // JWT মিডলওয়্যার থেকে আসা লগইনড অ্যাডমিন সেশন
+  const { userId } = req.params;   // ইউআরএল প্যারামস থেকে টার্গেট ইউজারের আইডি
+  
+  const incomingStatus = req.body.status as string;
+  if (!incomingStatus) {
+    throw new Error("User status field ('status') is required in request body!");
+  }
+
+  // 👑 কেস-সেনসিটিভিটি ফিক্স: স্ট্যাটাসটিকে ট্রিম ও বড় হাতের (UPPERCASE) বানিয়ে নেওয়া
+  const cleanStatus = incomingStatus.trim().toUpperCase();
+  
+  // ভ্যালিড প্রিজমা এনাম চেক
+  if (cleanStatus !== "ACTIVE" && cleanStatus !== "BLOCKED") {
+    throw new Error("Invalid status type! Allowed values are strictly 'ACTIVE' or 'BLOCKED'.");
+  }
+
+  // ⚡ সার্ভিস লেয়ার এক্সিকিউশন (ইন্টারফেসের সাথে মিলিয়ে অবজেক্ট আকারে ডাটা পাঠানো হলো)
+  const result = await AuthService.updateUserStatusInDB({
+    adminId: admin.id || admin.userId,
+    adminRole: admin.role,
+    targetUserId: userId as string,
+    status: cleanStatus as UserStatus // টাইপ-সেফ এনাম কাস্টিং
+  });
+
+  // স্ট্যান্ডার্ড রেসপন্স
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: `User system account status has been successfully updated to ${cleanStatus}!`,
+    data: result
+  });
+});
+
+
+
 export const AuthController = {
 	registerPatient,
 	loginUser,
@@ -305,5 +342,6 @@ export const AuthController = {
 	resetPassword,
 	verifyPatientEmail,
 	updateProfile,
-	getAllUsers
+	getAllUsers,
+	updateUserStatus
 };
