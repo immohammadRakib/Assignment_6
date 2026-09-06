@@ -124,6 +124,58 @@ const assignTechnicianManually = catchAsync(
   },
 );
 
+
+const getAllTechnicians = catchAsync(async (req: Request, res: Response) => {
+  // কুয়েরি থেকে ফিল্টার আলাদা করা
+  const filters = {
+    searchTerm: req.query.searchTerm as string,
+    status: req.query.status as string,
+    zoneId: req.query.zoneId as string,
+  };
+  
+  // কুয়েরি থেকে পেজিনেশন অপশন আলাদা করা
+  const options = {
+    page: Number(req.query.page),
+    limit: Number(req.query.limit),
+    sortBy: req.query.sortBy as string,
+    sortOrder: req.query.sortOrder as string,
+  };
+
+  const result = await OutageService.getAllTechniciansFromDB(filters, options);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Technicians retrieved successfully for Zone Manager.",
+    data: result,
+  });
+});
+
+
+const getAllOutageReports = catchAsync(async (req: Request, res: Response) => {
+  const filters = {
+    searchTerm: req.query.searchTerm as string,
+    status: req.query.status as string,
+    areaId: req.query.areaId as string,
+  };
+
+  const options = {
+    page: Number(req.query.page),
+    limit: Number(req.query.limit),
+    sortBy: req.query.sortBy as string,
+    sortOrder: req.query.sortOrder as string,
+  };
+
+  const result = await OutageService.getAllOutageReportsFromDB(filters, options);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Outage complaint reports retrieved successfully.",
+    data: result,
+  });
+});
+
 export const OutageController = {
   reportUnexpectedOutage,
   resolveOutageJob,
@@ -131,4 +183,6 @@ export const OutageController = {
   assignTechnicianManually,
   createScheduledOutage,
   getAllScheduledOutages,
+  getAllTechnicians,
+  getAllOutageReports,
 };

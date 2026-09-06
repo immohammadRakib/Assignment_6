@@ -23,3 +23,29 @@ export interface IOutageResponse {
   report?: any;
   assignedTechnicianId?: string;
 }
+
+export interface IOutageResolveResponse {
+  success: boolean;
+  message: string;
+  report: any; 
+}
+
+
+export interface IManualAssignmentResponse {
+  success: boolean;
+  message: string;
+  report: any;
+}
+
+export interface ITechnicianFilterableFields {
+  searchTerm?: string;
+  status?: string;
+  zoneId?: string;
+}
+
+
+export interface IOutageReportFilterableFields {
+  searchTerm?: string;
+  status?: string;
+  areaId?: string;
+}

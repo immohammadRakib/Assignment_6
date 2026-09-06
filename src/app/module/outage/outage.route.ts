@@ -48,4 +48,17 @@ router.patch(
   OutageController.assignTechnicianManually,
 );
 
+router.get(
+  "/technicians",
+  auth(Role.ZONE_MANAGER, Role.ADMIN, Role.SUPER_ADMIN),
+  OutageController.getAllTechnicians
+);
+
+router.get(
+  "/reports",
+  auth(Role.ZONE_MANAGER, Role.ADMIN, Role.SUPER_ADMIN),
+  OutageController.getAllOutageReports
+);
+
+
 export const OutageRoutes = router;

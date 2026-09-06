@@ -8,6 +8,10 @@ import {
   IReportOutagePayload,
   IOutageResponse,
   IScheduledOutagePayload,
+  IOutageResolveResponse,
+  ITechnicianFilterableFields,
+  IManualAssignmentResponse,
+  IOutageReportFilterableFields,
 } from "./outage.interface";
 import { paginationHelper } from "../../utils/paginationHelper";
 import { Prisma } from "../../../generated/prisma/browser";
@@ -72,7 +76,8 @@ const getAllScheduledOutagesFromDB = async (query: any) => {
     paginationHelper.calculatePagination(paginationOptions);
 
   const andConditions: Prisma.OutageWhereInput[] = [
-    { type: OutageType.SCHEDULED }
+    { type: OutageType.SCHEDULED },
+    { isDeleted: false }
   ];
 
   if (areaId) {
@@ -248,8 +253,58 @@ const reportUnexpectedOutage = async (payload: any): Promise<any> => {
   });
 };
 
-const resolveOutageJob = async (reportId: string): Promise<any> => {
+// const resolveOutageJob = async (reportId: string): Promise<any> => {
+//   return await prisma.$transaction(async (tx) => {
+//     const report = await tx.outageReport.findUnique({
+//       where: { id: reportId },
+//     });
+
+//     if (!report) {
+//       throw new Error("Complaint report ticket not found!");
+//     }
+
+//     if (report.status === OutageStatus.RESTORED) {
+//       throw new Error("This job is already resolved!");
+//     }
+
+//     const updatedReport = await tx.outageReport.update({
+//       where: { id: reportId },
+//       data: {
+//         status: OutageStatus.RESTORED,
+//       },
+//     });
+
+//     if (report.technicianId) {
+//       await tx.technician.update({
+//         where: { id: report.technicianId },
+//         data: {
+//           status: TechnicianStatus.AVAILABLE,
+//         },
+//       });
+//     }
+
+//     if ((report as any).outageId) {
+//       await tx.outage.update({
+//         where: { id: (report as any).outageId },
+//         data: {
+//           status: OutageStatus.RESTORED,
+//           endTime: new Date(),
+//         },
+//       });
+//     }
+
+//     return {
+//       success: true,
+//       message:
+//         " Power Restored successfully! Job resolved directly via report ticket.",
+//       report: updatedReport,
+//     };
+//   });
+// };
+
+const resolveOutageJob = async (reportId: string): Promise<IOutageResolveResponse> => {
   return await prisma.$transaction(async (tx) => {
+    // ১. রিপোর্টটি খোঁজা (🛡️ টাইপ সেফটির জন্য outageId স্কিমা অনুযায়ী select বা include করে নেওয়া ভালো)
     const report = await tx.outageReport.findUnique({
       where: { id: reportId },
     });
@@ -258,10 +313,12 @@ const resolveOutageJob = async (reportId: string): Promise<any> => {
       throw new Error("Complaint report ticket not found!");
     }
 
+    // ২. অলরেডি রিস্টোর্ডড বা রিজলভড কিনা চেক করা
     if (report.status === OutageStatus.RESTORED) {
       throw new Error("This job is already resolved!");
     }
 
+    // ৩. আউটেজ রিপোর্টের স্ট্যাটাস RESTORED করা
     const updatedReport = await tx.outageReport.update({
       where: { id: reportId },
       data: {
@@ -269,6 +326,7 @@ const resolveOutageJob = async (reportId: string): Promise<any> => {
       },
     });
 
+    // ৪. 👑 অটো-সেটআপ: টেকনিশিয়ানকে ফ্রি (AVAILABLE) করা
     if (report.technicianId) {
       await tx.technician.update({
         where: { id: report.technicianId },
@@ -278,24 +336,26 @@ const resolveOutageJob = async (reportId: string): Promise<any> => {
       });
     }
 
-    if ((report as any).outageId) {
+    // ৫. ⚡ টাইপ সেফ ওয়েতে মেইন Outage টেবিলের স্ট্যাটাস ও টাইম ট্র্যাক করা
+    // আপনার প্রিজমা স্কিমা অনুযায়ী যদি ফিল্ডটির নাম 'outageId' হয়ে থাকে:
+    if ('outageId' in report && (report as any).outageId) {
       await tx.outage.update({
         where: { id: (report as any).outageId },
         data: {
           status: OutageStatus.RESTORED,
-          endTime: new Date(),
+          endTime: new Date(), // মডার্ন ডাটা প্র্যাকটিস অনুযায়ী কখন শেষ হলো তা সেভ করা
         },
       });
     }
 
     return {
       success: true,
-      message:
-        "⚡ Power Restored successfully! Job resolved directly via report ticket.",
+      message: "⚡ Power Restored successfully! Job resolved directly via report ticket.",
       report: updatedReport,
     };
   });
 };
+
 
 const getActiveOutageByArea = async (areaId: string) => {
   const result = await prisma.outage.findFirst({
@@ -323,11 +383,68 @@ const getActiveOutageByArea = async (areaId: string) => {
   return result;
 };
 
+// const assignTechnicianManually = async (
+//   reportId: string,
+//   technicianId: string,
+// ) => {
+//   return await prisma.$transaction(async (tx) => {
+//     const technician = await tx.technician.findUnique({
+//       where: { id: technicianId },
+//     });
+
+//     if (!technician) {
+//       throw new Error("Selected Technician profile not found!");
+//     }
+
+//     if (technician.status !== TechnicianStatus.AVAILABLE) {
+//       throw new Error(
+//         "This technician is currently ON_DUTY or OFFLINE. Cannot assign!",
+//       );
+//     }
+
+//     const updatedReport = await tx.outageReport.update({
+//       where: { id: reportId },
+//       data: {
+//         status: OutageStatus.ASSIGNED,
+//         technicianId: technicianId,
+//       },
+//     });
+
+//     await tx.technician.update({
+//       where: { id: technicianId },
+//       data: { status: TechnicianStatus.ON_DUTY },
+//     });
+
+//     return updatedReport;
+//   });
+// };
+
+
 const assignTechnicianManually = async (
   reportId: string,
   technicianId: string,
-) => {
+): Promise<IManualAssignmentResponse> => {
   return await prisma.$transaction(async (tx) => {
+    // ১. প্রথমে চেক করা যে এই কমপ্লেন বা আউটেজ রিপোর্টটি আসলেই ডাটাবেসে আছে কিনা
+    const report = await tx.outageReport.findUnique({
+      where: { id: reportId },
+    });
+
+    if (!report) {
+      throw new Error("Outage report ticket not found!");
+    }
+
+    // 🛡️ অ্যাডভান্সড বিজনেস গার্ড: টিকিট অলরেডি রিস্টোর্ড (Resolved) হয়ে গেলে যেন নতুন করে টেকনিশিয়ান অ্যাসাইন না হয়
+    if (report.status === OutageStatus.RESTORED) {
+      throw new Error("This outage ticket is already resolved and power is restored! Cannot assign a technician.");
+    }
+
+    // 🛡️ ডুপ্লিকেট অ্যাসাইনমেন্ট প্রটেকশন: যদি অলরেডি কোনো টেকনিশিয়ান কাজ করতে থাকে
+    if (report.technicianId) {
+      throw new Error("A technician is already assigned to this outage ticket!");
+    }
+
+    // ২. এবার টেকনিশিয়ানের প্রোফাইল ও তার স্ট্যাটাস চেক করা
     const technician = await tx.technician.findUnique({
       where: { id: technicianId },
     });
@@ -336,12 +453,14 @@ const assignTechnicianManually = async (
       throw new Error("Selected Technician profile not found!");
     }
 
+    // টেকনিশিয়ান ফ্রি (AVAILABLE) আছে কিনা নিশ্চিত করা
     if (technician.status !== TechnicianStatus.AVAILABLE) {
       throw new Error(
-        "This technician is currently ON_DUTY or OFFLINE. Cannot assign!",
+        `This technician is currently ${technician.status}. Cannot assign until they are AVAILABLE!`,
       );
     }
 
+    // ৩. টিকিটের স্ট্যাটাস ASSIGNED করা এবং টেকনিশিয়ান ম্যাপ করা
     const updatedReport = await tx.outageReport.update({
       where: { id: reportId },
       data: {
@@ -350,13 +469,154 @@ const assignTechnicianManually = async (
       },
     });
 
+    // ৪. টেকniশিয়ানকে লক (ON_DUTY) করে দেওয়া
     await tx.technician.update({
       where: { id: technicianId },
       data: { status: TechnicianStatus.ON_DUTY },
     });
 
-    return updatedReport;
+    return {
+      success: true,
+      message: "Technician has been successfully assigned to the outage ticket manually.",
+      report: updatedReport,
+    };
   });
+};
+
+
+const getAllTechniciansFromDB = async (filters: ITechnicianFilterableFields, options: any) => {
+  const { searchTerm, status, zoneId } = filters;
+  const { page, limit, skip, sortBy, sortOrder } = paginationHelper.calculatePagination(options);
+
+  const andConditions: Prisma.TechnicianWhereInput[] = [];
+
+  // ১. সার্চিং লজিক (নাম, ইমেইল বা স্পেশালাইজেশন দিয়ে সার্চ)
+  if (searchTerm) {
+    andConditions.push({
+      user: {
+        OR: [
+          { name: { contains: searchTerm, mode: "insensitive" } },
+          { email: { contains: searchTerm, mode: "insensitive" } },
+        ],
+      },
+    });
+  }
+
+  // ২. ফিল্টারিং লজিক (Status এবং ZoneId)
+  if (status) {
+    andConditions.push({ status: status as any });
+  }
+  if (zoneId) {
+    andConditions.push({ zoneId });
+  }
+
+  const whereConditions: Prisma.TechnicianWhereInput =
+    andConditions.length > 0 ? { AND: andConditions } : {};
+
+  // ৩. ডাটা ফেচ করা
+  const data = await prisma.technician.findMany({
+    where: whereConditions,
+    skip: Number(skip),
+    take: Number(limit),
+    orderBy: sortBy && sortOrder ? { [sortBy]: sortOrder } : { createdAt: "desc" },
+    include: {
+      user: {
+        select: { name: true, email: true, phone: true, profileImage: true },
+      },
+      zone: { select: { name: true } },
+    },
+  });
+
+  // ৪. টোটাল কাউন্ট
+  const total = await prisma.technician.count({ where: whereConditions });
+
+  return {
+    meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+    data,
+  };
+};
+
+
+const getAllOutageReportsFromDB = async (filters: IOutageReportFilterableFields, options: any) => {
+  const { searchTerm, status, areaId } = filters;
+  const { page, limit, skip, sortBy, sortOrder } = paginationHelper.calculatePagination(options);
+
+  const andConditions: Prisma.OutageReportWhereInput[] = [];
+
+  // ১. সার্চিং লজিক
+  if (searchTerm) {
+    andConditions.push({
+      OR: [
+        { description: { contains: searchTerm, mode: "insensitive" } },
+        { 
+          customer: { 
+            user: { 
+              name: { contains: searchTerm, mode: "insensitive" } 
+            } 
+          } 
+        }
+      ],
+    });
+  }
+
+  // ২. ফিল্টারিং লজিক (Status)
+  if (status) {
+    andConditions.push({ status: status as any });
+  }
+
+  // ৩. এরিয়া আইডি ফিল্টার (কাস্টমারের ভেতর দিয়ে এরিয়া ফিল্টার করা)
+  if (areaId) {
+    andConditions.push({
+      customer: {
+        areaId: areaId as string,
+      },
+    });
+  }
+
+  const whereConditions: Prisma.OutageReportWhereInput =
+    andConditions.length > 0 ? { AND: andConditions } : {};
+
+  // ৪. 👑 ডাটা ফেচ করা (ভুল include ফিক্সড)
+  const data = await prisma.outageReport.findMany({
+    where: whereConditions,
+    skip: Number(skip),
+    take: Number(limit),
+    orderBy: sortBy && sortOrder ? { [sortBy]: sortOrder } : { createdAt: "desc" },
+    include: {
+      // ⚡ ম্যাজিক এখানে: customer এর ভেতর দিয়ে user এবং area দুটাকেই একসাথে নিয়ে আসা
+      customer: { 
+        include: { 
+          user: { 
+            select: { 
+              name: true, 
+              email: true 
+            } 
+          },
+          area: { // 💡 যেহেতু কাস্টমার এরিয়ার সাথে যুক্ত, তাই area এখানে থাকবে!
+            select: { 
+              name: true 
+            } 
+          }
+        } 
+      },
+      technician: {
+        include: { 
+          user: { 
+            select: { 
+              name: true 
+            } 
+          } 
+        }
+      }
+    },
+  });
+
+  const total = await prisma.outageReport.count({ where: whereConditions });
+
+  return {
+    meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+    data,
+  };
 };
 
 export const OutageService = {
@@ -366,4 +626,6 @@ export const OutageService = {
   assignTechnicianManually,
   createScheduledOutageInDB,
   getAllScheduledOutagesFromDB,
+  getAllTechniciansFromDB,
+  getAllOutageReportsFromDB,
 };

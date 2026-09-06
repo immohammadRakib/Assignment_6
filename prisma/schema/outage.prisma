@@ -1,7 +1,7 @@
 model Outage {
   id          String       @id @default(uuid(7))
   type        OutageType   @default(SCHEDULED)
-  status      OutageStatus @default(PLANNED) // এনামের সাথে ম্যাচ করা হলো
+  status      OutageStatus @default(PLANNED) 
   startTime   DateTime
   endTime     DateTime
   reason      String?      
@@ -11,6 +11,9 @@ model Outage {
 
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime? 
 
   @@index([startTime, endTime])
   @@map("outages")
