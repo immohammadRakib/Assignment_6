@@ -16,6 +16,7 @@ import { OutageRoutes } from "./app/module/outage/outage.route";
 import { GridRoutes } from "./app/module/grid/grid.route";
 import { WalletRoutes } from "./app/module/wallet/wallet.route";
 import { AuditLogRoutes } from "./app/module/audit/auditLog.route";
+import { DashboardRoutes } from "./app/module/dashboard/dashboard.route";
 
 const app: Application = express();
 
@@ -42,6 +43,8 @@ app.use("/api/v1/wallet", WalletRoutes);
 app.use("/api/v1/grid", GridRoutes);
 
 app.use("/api/v1/auditLogs", AuditLogRoutes);
+
+app.use("/api/v1/dashboard", DashboardRoutes);
 
 app.get("/test", async (req: Request, res: Response, next: NextFunction) => {
   try {

@@ -5,13 +5,11 @@ import httpStatus from "http-status";
 import { AuditLogService } from "./auditLog.service";
 
 const getAllLogs = catchAsync(async (req: Request, res: Response) => {
-  // ফিল্টার অপশন আলাদা করা
   const filters = {
     searchTerm: req.query.searchTerm as string,
     action: req.query.action as string,
   };
 
-  // পেজিনেশন অপশন আলাদা করা
   const options = {
     page: Number(req.query.page),
     limit: Number(req.query.limit),
