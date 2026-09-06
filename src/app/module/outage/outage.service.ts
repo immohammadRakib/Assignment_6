@@ -619,6 +619,29 @@ const getAllOutageReportsFromDB = async (filters: IOutageReportFilterableFields,
   };
 };
 
+
+const softDeleteOutageReportFromDB = async (reportId: string) => {
+  // ১. চেক করা যে রিপোর্টটি আছে কিনা এবং অলরেডি ডিলিট হয়ে গেছে কিনা
+  const report = await prisma.outageReport.findUnique({
+    where: { id: reportId },
+  });
+
+  if (!report || report.isDeleted) {
+    throw new Error("Outage report ticket not found or already deleted!");
+  }
+
+  // ২. 🛡️ সফট ডিলিট করা
+  const result = await prisma.outageReport.update({
+    where: { id: reportId },
+    data: {
+      isDeleted: true,
+      deletedAt: new Date(),
+    },
+  });
+
+  return result;
+};
+
 export const OutageService = {
   reportUnexpectedOutage,
   resolveOutageJob,
@@ -628,4 +651,5 @@ export const OutageService = {
   getAllScheduledOutagesFromDB,
   getAllTechniciansFromDB,
   getAllOutageReportsFromDB,
+  softDeleteOutageReportFromDB
 };

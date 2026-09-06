@@ -42,4 +42,10 @@ router.post(
   GridControllers.createArea,
 );
 
+router.delete(
+  "/area/:id",
+  auth(Role.ADMIN, Role.SUPER_ADMIN), 
+  GridControllers.softDeleteArea
+);
+
 export const GridRoutes = router;

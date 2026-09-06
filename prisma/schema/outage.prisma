@@ -22,7 +22,7 @@ model Outage {
 model OutageReport {
   id           String       @id @default(uuid(7))
   description  String    
-  proofImage   String?  
+  notes        String?
   status       OutageStatus @default(PENDING) // TicketStatus পরিবর্তন করে OutageStatus করা হলো
   
   customerId   String
@@ -31,6 +31,9 @@ model OutageReport {
   technicianId String?      
   technician   Technician?  @relation(fields: [technicianId], references: [id], onDelete: SetNull)
   
+  isDeleted    Boolean    @default(false)
+  deletedAt    DateTime?
+
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 

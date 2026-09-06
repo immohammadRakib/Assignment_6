@@ -60,5 +60,10 @@ router.get(
   OutageController.getAllOutageReports
 );
 
+router.delete(
+  "/report/:reportId",
+  auth(Role.ZONE_MANAGER, Role.ADMIN, Role.SUPER_ADMIN),
+  OutageController.softDeleteOutageReport
+);
 
 export const OutageRoutes = router;

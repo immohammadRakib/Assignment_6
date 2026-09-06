@@ -176,6 +176,21 @@ const getAllOutageReports = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+
+const softDeleteOutageReport = catchAsync(async (req: Request, res: Response) => {
+  const { reportId } = req.params; // URL থেকে টিকিট আইডি নেওয়া
+
+  const result = await OutageService.softDeleteOutageReportFromDB(reportId as string);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Outage complaint report ticket soft deleted successfully.",
+    data: result,
+  });
+});
+
+
 export const OutageController = {
   reportUnexpectedOutage,
   resolveOutageJob,
@@ -185,4 +200,5 @@ export const OutageController = {
   getAllScheduledOutages,
   getAllTechnicians,
   getAllOutageReports,
+  softDeleteOutageReport,
 };

@@ -49,4 +49,5 @@ export const GridServices = {
   createSubstationInDB,
   createFeederInDB,
   createAreaInDB,
+  softDeleteAreaFromDB,
 };

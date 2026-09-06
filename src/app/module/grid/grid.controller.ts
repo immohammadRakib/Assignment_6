@@ -54,10 +54,24 @@ const createArea = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const softDeleteArea = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params; // রাউট প্যারামিটার থেকে এরিয়া আইডি নেওয়া হলো
+
+  const result = await GridServices.softDeleteAreaFromDB(id as string);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Area has been soft deleted successfully!",
+    data: result,
+  });
+});
+
 export const GridControllers = {
   createPowerAuthority,
   createZone,
   createSubstation,
   createFeeder,
   createArea,
+  softDeleteArea,
 };
