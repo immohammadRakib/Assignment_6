@@ -1,38 +1,39 @@
-import { prisma } from "../../lib/prisma"; // তোমার প্রিসমা ক্লায়েন্ট পাথ
-// তোমার কাস্টম জেনারেটেড পাথ থেকে এনামগুলো ইম্পোর্ট করা হলো (কোনো লাল দাগ আসবে না)
-import { OutageStatus, OutageType, TechnicianStatus } from "../../../generated/prisma/enums"; 
-import { IReportOutagePayload, IOutageResponse } from "./outage.interface";
+import { prisma } from "../../lib/prisma"; 
+import {
+  OutageStatus,
+  OutageType,
+  TechnicianStatus,
+} from "../../../generated/prisma/enums";
+import {
+  IReportOutagePayload,
+  IOutageResponse,
+  IScheduledOutagePayload,
+} from "./outage.interface";
 
-
-
-const createScheduledOutageInDB = async (payload: { areaId: string; startTime: string; endTime: string; reason?: string }) => {
+const createScheduledOutageInDB = async (payload: IScheduledOutagePayload) => {
   const { areaId, startTime, endTime, reason } = payload;
 
-  // ১. আউটরেজ টেবিলে একটি PLANNED এবং SCHEDULED রেকর্ড তৈরি করা
   const result = await prisma.outage.create({
     data: {
       areaId,
       type: OutageType.SCHEDULED,
-      status: OutageStatus.PLANNED, // আগে থেকে শিডিউল করা হয়েছে তাই PLANNED
+      status: OutageStatus.PLANNED,
       startTime: new Date(startTime),
       endTime: new Date(endTime),
       reason: reason || "Regular Load Shedding Management",
     },
     include: {
-      area: { select: { name: true } }
-    }
+      area: { select: { name: true } },
+    },
   });
 
   return result;
 };
 
-// খ) সবার জন্য লাইভ লোডশেডিং শিডিউল ডাটা দেখার এপিআই [THE OPEN VIEW SERVICE]
 const getAllScheduledOutagesFromDB = async (query: any) => {
   const { areaId, status } = query;
-  
-  const andConditions: any[] = [
-    { type: OutageType.SCHEDULED } // শুধুমাত্র শিডিউল করা ডাটা ফিল্টার হবে
-  ];
+
+  const andConditions: any[] = [{ type: OutageType.SCHEDULED }];
 
   if (areaId) {
     andConditions.push({ areaId: areaId as string });
@@ -42,44 +43,43 @@ const getAllScheduledOutagesFromDB = async (query: any) => {
     andConditions.push({ status: status as OutageStatus });
   }
 
-  const whereConditions = andConditions.length > 0 ? { AND: andConditions } : {};
+  const whereConditions =
+    andConditions.length > 0 ? { AND: andConditions } : {};
 
-  // ডাটাবেজ থেকে এরিয়া ও ফিডার নেস্টিং সহ শিডিউল তুলে আনা
   const result = await prisma.outage.findMany({
     where: whereConditions,
     include: {
       area: {
         select: {
           name: true,
-          feeder: { select: { name: true } }
-        }
-      }
+          feeder: { select: { name: true } },
+        },
+      },
     },
-    orderBy: { startTime: "asc" }
+    orderBy: { startTime: "asc" },
   });
 
   return result;
 };
 
-
-// ==========================================
-// ১. কাস্টমার কমপ্লেন ইঞ্জিন (উইথ অটো-টেকনিশিয়ান অ্যাসাইন)
-// ==========================================
 const reportUnexpectedOutage = async (payload: any): Promise<any> => {
   const { customerId, areaId, description } = payload;
 
-  // ক) চেক করা—এই এরিয়াতে অলরেডি কোনো লাইভ বিদ্যুৎ বিভ্রাট চলছে কিনা
   const existingActiveOutage = await prisma.outage.findFirst({
     where: {
       areaId,
       type: OutageType.UNEXPECTED,
       status: {
-        in: [OutageStatus.PENDING, OutageStatus.ACTIVE, OutageStatus.ASSIGNED, OutageStatus.REPAIRING],
+        in: [
+          OutageStatus.PENDING,
+          OutageStatus.ACTIVE,
+          OutageStatus.ASSIGNED,
+          OutageStatus.REPAIRING,
+        ],
       },
     },
   });
 
-  // যদি অলরেডি বিদ্যুৎ না থাকার রেকর্ড তৈরি হয়ে থাকে, তবে নতুন আউটরেজ না বানিয়ে শুধু কাস্টমারের টিকিট লক করা
   if (existingActiveOutage) {
     const newReport = await prisma.outageReport.create({
       data: {
@@ -90,16 +90,14 @@ const reportUnexpectedOutage = async (payload: any): Promise<any> => {
     });
 
     return {
-      message: "This outage is already acknowledged by the system. Your report has been logged.",
+      message:
+        "This outage is already acknowledged by the system. Your report has been logged.",
       outage: existingActiveOutage,
       report: newReport,
     };
   }
 
-  // খ) একদম নতুন এরর হলে ট্রানজেকশনের মাধ্যমে বিদ্যুৎ বিভ্রাট তৈরি ও টেকনিশিয়ান অটো-এসাইন করা
   return await prisma.$transaction(async (tx) => {
-    
-    // ১. মেইন এরিয়াতে বিদ্যুৎ নেই (Outage Record) তৈরি করা
     const newOutage = await tx.outage.create({
       data: {
         areaId,
@@ -107,22 +105,21 @@ const reportUnexpectedOutage = async (payload: any): Promise<any> => {
         status: OutageStatus.PENDING,
         reason: "Unexpected Grid/Transformer Breakdown",
         startTime: new Date(),
-        endTime: new Date(Date.now() + 60 * 60 * 1000), // ডিফল্ট ১ ঘণ্টা ধর্তব্য
+        endTime: new Date(Date.now() + 60 * 60 * 1000),
       },
     });
 
-    // ২. এরিয়ার প্যারেন্ট জোন খুঁজে বের করা (Area -> Feeder -> Substation -> Zone)
     const targetArea = await tx.area.findUnique({
       where: { id: areaId },
       include: {
         feeder: {
           include: {
             substation: {
-              select: { zoneId: true }
-            }
-          }
-        }
-      }
+              select: { zoneId: true },
+            },
+          },
+        },
+      },
     });
 
     const zoneId = targetArea?.feeder?.substation?.zoneId;
@@ -130,25 +127,22 @@ const reportUnexpectedOutage = async (payload: any): Promise<any> => {
     let ticketStatus: OutageStatus = OutageStatus.PENDING;
 
     if (zoneId) {
-      // ৩. ওই জোনের আন্ডারে থাকা প্রথম AVAILABLE টেকনিশিয়ান খুঁজে বের করা
       const availableTech = await tx.technician.findFirst({
-        where: { 
-          zoneId, 
-          status: TechnicianStatus.AVAILABLE 
+        where: {
+          zoneId,
+          status: TechnicianStatus.AVAILABLE,
         },
       });
 
       if (availableTech) {
         assignedTechId = availableTech.id;
-        ticketStatus = OutageStatus.ASSIGNED; // টিকিটের স্ট্যাটাস অ্যাসাইনড হবে
+        ticketStatus = OutageStatus.ASSIGNED;
 
-        // ক) টেকনিশিয়ানকে বুক করে ফেলা (ON_DUTY) যেন সে অন্য কাজ না পায়
         await tx.technician.update({
           where: { id: availableTech.id },
           data: { status: TechnicianStatus.ON_DUTY },
         });
 
-        // খ) মেইন আউটরেজ ট্র্যাকিং স্ট্যাটাসও আপডেট করে দেওয়া
         await tx.outage.update({
           where: { id: newOutage.id },
           data: { status: OutageStatus.ASSIGNED },
@@ -156,17 +150,16 @@ const reportUnexpectedOutage = async (payload: any): Promise<any> => {
       }
     }
 
-    // ৪. কাস্টমারের কমপ্লেন টিকিট সরাসরি টেকনিশিয়ানের সাথে ম্যাপ করে তৈরি করা (স্কিমা অনুযায়ী)
     const customerReport = await tx.outageReport.create({
       data: {
         customerId,
-        description: description || "Power Outage/Transformer Breakdown Reported.",
+        description:
+          description || "Power Outage/Transformer Breakdown Reported.",
         status: ticketStatus,
-        technicianId: assignedTechId, // সরাসরি এখানে লিংক বসবে
+        technicianId: assignedTechId,
       },
     });
 
-    // ৫. যদি টেকনিশিয়ান না পাওয়া যায়, তবে আউটরেজকে কিউতে (ACTIVE) পুশ করা
     if (!assignedTechId) {
       await tx.outage.update({
         where: { id: newOutage.id },
@@ -176,8 +169,8 @@ const reportUnexpectedOutage = async (payload: any): Promise<any> => {
 
     return {
       success: true,
-      message: assignedTechId 
-        ? "Emergency Outage registered and technician successfully auto-dispatched!" 
+      message: assignedTechId
+        ? "Emergency Outage registered and technician successfully auto-dispatched!"
         : "Outage registered. No free technician in this zone, queued for manual dispatch.",
       outage: newOutage,
       report: customerReport,
@@ -185,65 +178,8 @@ const reportUnexpectedOutage = async (payload: any): Promise<any> => {
   });
 };
 
-// ==========================================
-// ২. টেকনিশিয়ান জব ক্লিয়ারেন্স ইঞ্জিন (Restoration Tracking)
-// ==========================================
-// const resolveOutageJob = async (reportId: string): Promise<any> => {
-//   return await prisma.$transaction(async (tx) => {
-//     // কমপ্লেন রিপোর্টটি খুঁজে বের করা
-//     const report = await tx.outageReport.findUnique({
-//       where: { id: reportId },
-//       include: { customer: true },
-//     });
-
-//     if (!report) throw new Error("Complaint report ticket not found!");
-//     if (report.status === OutageStatus.RESTORED) throw new Error("This job is already resolved!");
-
-//     // ক) কাস্টমারের টিকিটের স্ট্যাটাস RESTORED করা
-//     const updatedReport = await tx.outageReport.update({
-//       where: { id: reportId },
-//       data: { status: OutageStatus.RESTORED },
-//     });
-
-//     // খ) যদি টিকিটে কোনো টেকনিশিয়ান অ্যাসাইন থাকে, তাকে আবার ফ্রি করে দেওয়া (AVAILABLE)
-//     if (report.technicianId) {
-//       await tx.technician.update({
-//         where: { id: report.technicianId },
-//         data: { status: TechnicianStatus.AVAILABLE },
-//       });
-//     }
-
-//     // গ) ওই কাস্টমারের নির্দিষ্ট এরিয়ার চলমান UNEXPECTED আউটরেজগুলো সফলভাবে বন্ধ করা
-//     const activeOutage = await tx.outage.findFirst({
-//       where: {
-//         areaId: report.customer.areaId!,
-//         type: OutageType.UNEXPECTED,
-//         status: { in: [OutageStatus.ACTIVE, OutageStatus.ASSIGNED, OutageStatus.REPAIRING] }
-//       }
-//     });
-
-//     if (activeOutage) {
-//       await tx.outage.update({
-//         where: { id: activeOutage.id },
-//         data: { 
-//           status: OutageStatus.RESTORED,
-//           endTime: new Date() // কারেন্ট টাইমস্ট্যাম্প
-//         },
-//       });
-//     }
-
-//     return {
-//       success: true,
-//       message: "⚡ Power Restored successfully! Grid is online and technician is now free.",
-//       report: updatedReport
-//     };
-//   });
-// };
-
 const resolveOutageJob = async (reportId: string): Promise<any> => {
   return await prisma.$transaction(async (tx) => {
-    
-    // ১. কমপ্লেন রিপোর্ট টিকিটটি খুঁজে বের করা
     const report = await tx.outageReport.findUnique({
       where: { id: reportId },
     });
@@ -251,84 +187,77 @@ const resolveOutageJob = async (reportId: string): Promise<any> => {
     if (!report) {
       throw new Error("Complaint report ticket not found!");
     }
-    
+
     if (report.status === OutageStatus.RESTORED) {
       throw new Error("This job is already resolved!");
     }
 
-    // ক) কাস্টমারের ওই নির্দিষ্ট টিকিটের স্ট্যাটাস RESTORED করা
     const updatedReport = await tx.outageReport.update({
       where: { id: reportId },
-      data: { 
-        status: OutageStatus.RESTORED 
+      data: {
+        status: OutageStatus.RESTORED,
       },
     });
 
-    // খ) যে টেকনিশিয়ানকে এই রিপোর্টে অ্যাসাইন করা হয়েছিল, তাকে আবার ফ্রি (AVAILABLE) করে দেওয়া
-    // টেকনিশিয়ান কী লিখবে/ইনপুট দিবে: ড্যাশবোর্ডে কাজ শেষ করে সে জাস্ট বাটনে ক্লিক করবে,
-    // ব্যাকএন্ড তার আইডি রিড করে তাকে আবার পরবর্তী ডিউটির জন্য ফ্রি করে দেবে।
     if (report.technicianId) {
       await tx.technician.update({
         where: { id: report.technicianId },
-        data: { 
-          status: TechnicianStatus.AVAILABLE 
+        data: {
+          status: TechnicianStatus.AVAILABLE,
         },
       });
     }
 
-    // গ) এই রিপোর্টের সাথে ট্যাগ করা মূল বিদ্যুৎ বিভ্রাট (Outage Record) ক্লোজ করে দেওয়া
-   // 💡 সমাধান: অবজেক্টের পাশে (report as any) লিখে দিন, লাল দাগ সাথে সাথে চলে যাবে
-if ((report as any).outageId) {
-  await tx.outage.update({
-    where: { id: (report as any).outageId },
-    data: { 
-      status: OutageStatus.RESTORED,
-      endTime: new Date() // বিদ্যুৎ ফেরার নিখুঁত টাইমস্ট্যাম্প লক করা
-    },
-  });
-}
-
+    if ((report as any).outageId) {
+      await tx.outage.update({
+        where: { id: (report as any).outageId },
+        data: {
+          status: OutageStatus.RESTORED,
+          endTime: new Date(),
+        },
+      });
+    }
 
     return {
       success: true,
-      message: "⚡ Power Restored successfully! Job resolved directly via report ticket.",
-      report: updatedReport
+      message:
+        "⚡ Power Restored successfully! Job resolved directly via report ticket.",
+      report: updatedReport,
     };
   });
 };
 
-
-// ==========================================
-// ৩. লাইভ স্ট্যাটাস ইঞ্জিন (কাস্টমার ড্যাশবোর্ডে অটো শো করার জন্য)
-// ==========================================
 const getActiveOutageByArea = async (areaId: string) => {
   const result = await prisma.outage.findFirst({
     where: {
       areaId,
       status: {
-        in: [OutageStatus.PLANNED, OutageStatus.ACTIVE, OutageStatus.ASSIGNED, OutageStatus.REPAIRING],
+        in: [
+          OutageStatus.PLANNED,
+          OutageStatus.ACTIVE,
+          OutageStatus.ASSIGNED,
+          OutageStatus.REPAIRING,
+        ],
       },
     },
     include: {
       area: {
         select: {
           name: true,
-          priority: true
-        }
-      }
-    }
+          priority: true,
+        },
+      },
+    },
   });
 
   return result;
 };
 
-
-
-
-const assignTechnicianManually = async (reportId: string, technicianId: string) => {
+const assignTechnicianManually = async (
+  reportId: string,
+  technicianId: string,
+) => {
   return await prisma.$transaction(async (tx) => {
-    
-    // ১. চেক করা—টেকনিশিয়ানটি আসলেই সিস্টেমে আছে এবং AVAILABLE কি না
     const technician = await tx.technician.findUnique({
       where: { id: technicianId },
     });
@@ -338,10 +267,11 @@ const assignTechnicianManually = async (reportId: string, technicianId: string) 
     }
 
     if (technician.status !== TechnicianStatus.AVAILABLE) {
-      throw new Error("This technician is currently ON_DUTY or OFFLINE. Cannot assign!");
+      throw new Error(
+        "This technician is currently ON_DUTY or OFFLINE. Cannot assign!",
+      );
     }
 
-    // ২. কাস্টমারের কমপ্লেন রিপোর্টের স্ট্যাটাস ASSIGNED করা এবং টেকনিশিয়ান আইডি লিঙ্ক করা
     const updatedReport = await tx.outageReport.update({
       where: { id: reportId },
       data: {
@@ -350,7 +280,6 @@ const assignTechnicianManually = async (reportId: string, technicianId: string) 
       },
     });
 
-    // ৩. টেকনিশিয়ানকে সাথে সাথে বুক করে ফেলা (ON_DUTY) যেন সে অন্য কোনো কাজ না পায়
     await tx.technician.update({
       where: { id: technicianId },
       data: { status: TechnicianStatus.ON_DUTY },
@@ -359,9 +288,6 @@ const assignTechnicianManually = async (reportId: string, technicianId: string) 
     return updatedReport;
   });
 };
-
-
-
 
 export const OutageService = {
   reportUnexpectedOutage,

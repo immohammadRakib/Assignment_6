@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// ১. Scheduled Outage Create Validation
 const createScheduledOutageZodSchema = z.object({
   body: z.object({
     feederId: z
@@ -17,7 +16,6 @@ const createScheduledOutageZodSchema = z.object({
   }),
 });
 
-// ২. Unexpected Outage Report Validation (Customer Complaint)
 const reportUnexpectedOutageZodSchema = z.object({
   body: z.object({
     customerId: z
@@ -40,7 +38,6 @@ const reportUnexpectedOutageZodSchema = z.object({
   }),
 });
 
-// ৩. Technician Job Resolve Validation (Route Params Validation)
 const resolveOutageJobZodSchema = z.object({
   params: z.object({
     reportId: z
@@ -51,7 +48,6 @@ const resolveOutageJobZodSchema = z.object({
   }),
 });
 
-// ৪. Manual Technician Assignment Validation
 const assignTechnicianManuallyZodSchema = z.object({
   body: z.object({
     reportId: z

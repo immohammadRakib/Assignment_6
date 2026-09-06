@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// ১. Power Authority Validation Schema
 const createPowerAuthorityZodSchema = z.object({
   body: z.object({
     name: z
@@ -16,7 +15,6 @@ const createPowerAuthorityZodSchema = z.object({
   }),
 });
 
-// ২. Distribution Zone Validation Schema
 const createZoneZodSchema = z.object({
   body: z.object({
     name: z.string({
@@ -30,7 +28,6 @@ const createZoneZodSchema = z.object({
   }),
 });
 
-// ৩. Substation Validation Schema
 const createSubstationZodSchema = z.object({
   body: z.object({
     name: z.string({
@@ -45,7 +42,6 @@ const createSubstationZodSchema = z.object({
   }),
 });
 
-// ৪. Feeder Validation Schema
 const createFeederZodSchema = z.object({
   body: z.object({
     name: z.string({
@@ -59,7 +55,6 @@ const createFeederZodSchema = z.object({
   }),
 });
 
-// ৫. Area Validation Schema
 const createAreaZodSchema = z.object({
   body: z.object({
     name: z.string({
