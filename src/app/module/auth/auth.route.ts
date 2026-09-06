@@ -37,25 +37,17 @@ router.get(
   AuthController.getMe,
 );
 
-// router.patch(
-//   "/update-profile",
-//   auth(
-//     Role.CUSTOMER,
-//     Role.TECHNICIAN,
-//     Role.ZONE_MANAGER,
-//     Role.ADMIN,
-//     Role.SUPER_ADMIN,
-//   ),
-//   validateRequest(UserValidation.UpdateProfileZodSchema),
-//   AuthController.updateProfile,
-// );
-
-
 router.patch(
-  '/update-profile', 
-  auth(Role.CUSTOMER, Role.TECHNICIAN, Role.ZONE_MANAGER, Role.ADMIN, Role.SUPER_ADMIN), 
-  uploadSingle, 
-  AuthController.updateProfile
+  "/update-profile",
+  auth(
+    Role.CUSTOMER,
+    Role.TECHNICIAN,
+    Role.ZONE_MANAGER,
+    Role.ADMIN,
+    Role.SUPER_ADMIN,
+  ),
+  uploadSingle,
+  AuthController.updateProfile,
 );
 
 router.post("/refresh-token", AuthController.refreshToken);
