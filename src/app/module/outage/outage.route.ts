@@ -1,49 +1,51 @@
 import express from "express";
-import { OutageController } from "./outage.controller";
-import { auth } from "../../middleware/checkAuth";
 import { Role } from "../../../generated/prisma/enums";
+import { auth } from "../../middleware/checkAuth";
+import { validateRequest } from "../../middleware/validateRequest";
+import { OutageController } from "./outage.controller";
+import { OutageValidations } from "./outage.validation";
 
 const router = express.Router();
 
-// ১. হঠাৎ কারেন্ট চলে গেলে কাস্টমার কমপ্লেন করবে (Protected - Only CUSTOMER)
 router.post(
   "/report",
   auth(Role.CUSTOMER),
-  OutageController.reportUnexpectedOutage
+  validateRequest(OutageValidations.reportUnexpectedOutageZodSchema),
+  OutageController.reportUnexpectedOutage,
 );
 
 router.post(
   "/schedule",
   auth(Role.POWER_OPERATOR, Role.ADMIN, Role.SUPER_ADMIN),
-  OutageController.createScheduledOutage
+  validateRequest(OutageValidations.createScheduledOutageZodSchema),
+  OutageController.createScheduledOutage,
 );
 
-// ২. টেকনিশিয়ান মাঠে গিয়ে কাজ শেষ করে বিদ্যুৎ সচল করবে (Protected - Only TECHNICIAN)
-// এখানে রাউট প্যারামিটার হিসেবে :reportId পাস করা হয়েছে
-// router.patch(
-//   "/resolve/:reportId",
-//   auth(Role.TECHNICIAN),
-//   OutageController.resolveOutageJob
-// );
+router.patch(
+  "/resolve/:reportId",
+  auth(Role.TECHNICIAN),
+  validateRequest(OutageValidations.resolveOutageJobZodSchema),
+  OutageController.resolveOutageJob,
+);
 
-// // টেকনিশিয়ান প্যানেলের ৩টি সলিড এপিআই (Only TECHNICIAN)
-// router.get("/my-assigned-jobs", auth(Role.TECHNICIAN), OutageController.getMyAssignedJobs);
-// router.patch("/start-repairing/:reportId", auth(Role.TECHNICIAN), OutageController.startRepairing);
-router.patch("/resolve/:reportId", auth(Role.TECHNICIAN), OutageController.resolveOutageJob);
-
-
-// ৩. কাস্টমার বা এডমিন যে কেউ তার এরিয়ার লাইভ বিদ্যুৎ পরিস্থিতি দেখবে (Protected/Public)
 router.get(
   "/schedule-list",
-  auth(Role.CUSTOMER, Role.TECHNICIAN, Role.ZONE_MANAGER, Role.POWER_OPERATOR, Role.ADMIN, Role.SUPER_ADMIN),
-  OutageController.getAllScheduledOutages
+  auth(
+    Role.CUSTOMER,
+    Role.TECHNICIAN,
+    Role.ZONE_MANAGER,
+    Role.POWER_OPERATOR,
+    Role.ADMIN,
+    Role.SUPER_ADMIN,
+  ),
+  OutageController.getAllScheduledOutages,
 );
-
 
 router.patch(
   "/assign-technician",
   auth(Role.ZONE_MANAGER, Role.ADMIN, Role.SUPER_ADMIN),
-  OutageController.assignTechnicianManually
+  validateRequest(OutageValidations.assignTechnicianManuallyZodSchema),
+  OutageController.assignTechnicianManually,
 );
 
 export const OutageRoutes = router;
