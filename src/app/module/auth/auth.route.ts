@@ -7,61 +7,73 @@ import { UserValidation } from "./auth.validation";
 
 const router = Router();
 
-router.post("/register", validateRequest(UserValidation.UserRegistrationZodSchema), AuthController.registerPatient);
-router.post("/verify-email",
-	validateRequest(UserValidation.UserEmailVerifyZodSchema),
-	 AuthController.verifyPatientEmail);
-router.post("/login", validateRequest(UserValidation.LoginZodSchema), AuthController.loginUser);
-// router.get(
-// 	"/me",
-// 	auth(Role.ADMIN, Role.DOCTOR, Role.PATIENT, Role.SUPER_ADMIN),
-// 	AuthController.getMe,
-// );
+router.post(
+  "/register",
+  validateRequest(UserValidation.UserRegistrationZodSchema),
+  AuthController.registerUser,
+);
+router.post(
+  "/verify-email",
+  validateRequest(UserValidation.UserEmailVerifyZodSchema),
+  AuthController.verifyUserEmail,
+);
+router.post(
+  "/login",
+  validateRequest(UserValidation.LoginZodSchema),
+  AuthController.loginUser,
+);
 
 router.get(
   "/me",
-  // ⚡ তোমার নতুন প্রজেক্টের ৬টি রোলকেই এখানে অ্যাক্সেস দেওয়া হলো, যাতে সবাই তার প্রোফাইল দেখতে পারে
   auth(
     Role.SUPER_ADMIN,
     Role.ADMIN,
     Role.ZONE_MANAGER,
     Role.POWER_OPERATOR,
     Role.TECHNICIAN,
-    Role.CUSTOMER
+    Role.CUSTOMER,
   ),
-  AuthController.getMe
+  AuthController.getMe,
 );
 
 router.patch(
   "/update-profile",
-  auth(Role.CUSTOMER, Role.TECHNICIAN, Role.ZONE_MANAGER, Role.ADMIN, Role.SUPER_ADMIN),
+  auth(
+    Role.CUSTOMER,
+    Role.TECHNICIAN,
+    Role.ZONE_MANAGER,
+    Role.ADMIN,
+    Role.SUPER_ADMIN,
+  ),
   validateRequest(UserValidation.UpdateProfileZodSchema),
-  AuthController.updateProfile
+  AuthController.updateProfile,
 );
 
 router.post("/refresh-token", AuthController.refreshToken);
 
-router.post("/google", AuthController.googleLogin)
+router.post("/google", AuthController.googleLogin);
 
-router.post("/forgot-password",
-	validateRequest(UserValidation.ForgotPasswordZodSchema),
-	 AuthController.forgotPassword);
-router.post("/reset-password",
-	validateRequest(UserValidation.ResetPasswordZodSchema),
-	 AuthController.resetPassword);
+router.post(
+  "/forgot-password",
+  validateRequest(UserValidation.ForgotPasswordZodSchema),
+  AuthController.forgotPassword,
+);
+router.post(
+  "/reset-password",
+  validateRequest(UserValidation.ResetPasswordZodSchema),
+  AuthController.resetPassword,
+);
 
 router.get(
   "/all-users",
-  auth(Role.ADMIN, Role.SUPER_ADMIN), // কাস্টমার বা টেকনিশিয়ান এই রাউটে ঢুকতে পারবে না
-  AuthController.getAllUsers
+  auth(Role.ADMIN, Role.SUPER_ADMIN),
+  AuthController.getAllUsers,
 );
 
 router.patch(
   "/user-status/:userId",
-  auth(Role.ADMIN, Role.SUPER_ADMIN), // কাস্টমার বা টেকনিশিয়ান এখানে হিট করলে ওখানেই ব্লক খাবে
-  AuthController.updateUserStatus
+  auth(Role.ADMIN, Role.SUPER_ADMIN),
+  AuthController.updateUserStatus,
 );
 
-
 export const AuthRoutes = router;
-	
