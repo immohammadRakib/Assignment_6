@@ -21,7 +21,6 @@ const createAreaInDB = async (payload: any) => {
 };
 
 const softDeleteAreaFromDB = async (areaId: string) => {
-  // প্রথমে চেক করে নেওয়া যে এরিয়াটি আসলেই ডাটাবেসে আছে কিনা এবং অলরেডি ডিলিট হয়ে গেছে কিনা
   const area = await prisma.area.findUnique({
     where: { id: areaId },
   });
@@ -30,12 +29,11 @@ const softDeleteAreaFromDB = async (areaId: string) => {
     throw new Error("Area not found or already deleted!");
   }
 
-  // 👑 আসল সফট ডিলিট ম্যাজিক
   const result = await prisma.area.update({
     where: { id: areaId },
     data: {
       isDeleted: true,
-      deletedAt: new Date(), // কখন ডিলিট হলো তা ট্র্যাক করা
+      deletedAt: new Date() 
     },
   });
 

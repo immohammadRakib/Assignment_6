@@ -24,4 +24,10 @@ router.get(
 
 router.get("/stripe-cancel", WalletController.handleStripeCancel);
 
+router.get(
+  "/history",
+  auth(Role.CUSTOMER, Role.ADMIN, Role.SUPER_ADMIN),
+  WalletController.getPaymentHistory
+);
+
 export const WalletRoutes = router;

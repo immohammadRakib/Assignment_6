@@ -1,31 +1,36 @@
 import rateLimit from "express-rate-limit";
 import RedisStore from "rate-limit-redis";
-import { redisClient } from "../lib/redis"; // আপনার প্রজেক্টের সঠিক রিডিস পাথ
+import { redisClient } from "../lib/redis";
 import { Request, Response } from "express";
 
-// 👑 গ্লোবাল এপিআই রেট লিমিট (প্রতিটি আলাদা আইপির জন্য আলাদা ট্র্যাক)
 export const globalApiRateLimiter = rateLimit({
   store: new RedisStore({
-    // @ts-ignore
-    sendCommand: (...args: string[]) => redisClient.sendCommand(args),
-    prefix: "rl:global:", // Redis এ কী-এর প্রিফিক্স
+    sendCommand: async (...args: string[]) => {
+      if (!redisClient.isOpen) {
+        await redisClient.connect();
+      }
+      return redisClient.sendCommand(args);
+    },
+    prefix: "rl:global:",
   }),
-  windowMs: 1 * 60 * 1000, // ১ মিনিট উইন্ডো
-  max: 60, // 🛡️ ১ মিনিটে একটি নির্দিষ্ট IP থেকে সর্বোচ্চ ৬০টি রিকোয়েস্ট পাঠানো যাবে
-  
-  // 👑 ম্যাজিক লাইন: প্রিজমা/এক্সপ্রেসকে বাধ্য করা প্রতিটি ইউনিক আইপি আলাদাভাবে ট্র্যাক করতে
-  keyGenerator: (req: Request) => {
-    return (req.headers["x-forwarded-for"] as string) || req.ip || "unknown-ip";
+  windowMs: 1 * 60 * 1000,
+  max: 60,
+
+  keyGenerator: (req: Request): string => {
+    const ip =
+      (req.headers["x-forwarded-for"] as string) || req.ip || "unknown-ip";
+    if (ip === "::1" || ip === "::ffff:127.0.0.1") {
+      return "127.0.0.1";
+    }
+    return ip;
   },
-  
+
   handler: (req: Request, res: Response) => {
     res.status(429).json({
       success: false,
       statusCode: 429,
-      message: "❌ Too many requests from this IP network! Please try again after a minute.",
-      error: {
-        details: "Security block enforced via distributed Redis store.",
-      },
+      message:
+        "Too many requests from this IP network! Please try again after a minute.",
     });
   },
   standardHeaders: true,

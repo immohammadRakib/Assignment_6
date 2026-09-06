@@ -12,8 +12,16 @@ const main = async () => {
     await prisma.$connect();
     console.log("Prisma Connected Successfully");
 
-    await redisClient.connect();
-    console.log("Redis Connected Successfully");
+    if (!redisClient.isOpen) {
+      await redisClient.connect();
+      console.log(
+        "Central Redis server connected and ready for Rate Limiting!",
+      );
+    } else {
+      console.log(
+        "Redis connection already established background smoothly.",
+      );
+    }
 
     await transporter.verify();
     console.log("Transporter Connected Successfully");

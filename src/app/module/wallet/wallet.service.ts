@@ -1,7 +1,9 @@
 import { prisma } from "../../lib/prisma";
-import { IMeterRechargePayload, IWalletResponse } from "./wallet.interface";
+import { IMeterRechargePayload, IPaymentFilterableFields, IWalletResponse } from "./wallet.interface";
 import Stripe from "stripe";
 import config from "../../config";
+import { Prisma } from "../../../generated/prisma/browser";
+import { paginationHelper } from "../../utils/paginationHelper";
 
 const stripe = new Stripe(
   process.env.STRIPE_SECRET_KEY || (config.stripe_secret_key as string),
@@ -107,8 +109,81 @@ const createCheckoutSession = async (
   };
 };
 
+
+const getPaymentHistoryFromDB = async (
+  userId: string,
+  role: string,
+  filters: IPaymentFilterableFields,
+  options: any
+) => {
+  const { searchTerm, status } = filters;
+  const { page, limit, skip, sortBy, sortOrder } = paginationHelper.calculatePagination(options);
+
+  const andConditions: Prisma.PaymentWhereInput[] = [];
+
+  // 🛡️ ১. রোল ভিত্তিক সিকিউরিটি ফিল্টার ফিক্স (customer এর পেটের ভেতর দিয়ে userId ম্যাচ করা)
+  if (role === "CUSTOMER") {
+    andConditions.push({
+      customer: {
+        userId: userId, // 💡 সরাসরি টেবিলে না খুঁজে কাস্টমার রিলেশনের ভেতর দিয়ে ইউজার আইডি ট্র্যাক করা
+      },
+    });
+  }
+
+  // 🔍 ২. সার্চিং লজিক ফিক্স (সরাসরি টেবিলে ফিল্ড না থাকলে রিলেশন ফ্লো ব্যবহার করা)
+  if (searchTerm) {
+    andConditions.push({
+      OR: [
+        { transactionId: { contains: searchTerm, mode: "insensitive" } },
+        {
+          customer: {
+            OR: [
+              { meterNumber: { contains: searchTerm, mode: "insensitive" } }, // 💡 কাস্টমারের মিটার নম্বর
+              { user: { name: { contains: searchTerm, mode: "insensitive" } } }  // 💡 কাস্টমারের নাম
+            ]
+          }
+        }
+      ],
+    });
+  }
+
+  // 🗂️ ৩. স্ট্যাটাস ফিল্টারিং
+  if (status) {
+    andConditions.push({ status: status as any });
+  }
+
+  const whereConditions: Prisma.PaymentWhereInput =
+    andConditions.length > 0 ? { AND: andConditions } : {};
+
+  // 👑 ৪. ডাটাবেস থেকে সর্টিং, পেজিনেশন ও টাইপ-সেফ include ফিক্স
+  const data = await prisma.payment.findMany({
+    where: whereConditions,
+    skip: Number(skip),
+    take: Number(limit),
+    orderBy: sortBy && sortOrder ? { [sortBy]: sortOrder } : { createdAt: "desc" },
+    include: {
+      customer: { 
+        include: {
+          user: {
+            select: { name: true, email: true },
+          }
+        }
+      },
+    },
+  });
+
+  // ৫. টোটাল কাউন্ট
+  const total = await prisma.payment.count({ where: whereConditions });
+
+  return {
+    meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+    data,
+  };
+};
+
 export const WalletService = {
   getCustomerBalance,
   rechargeMeterBalance,
   createCheckoutSession,
+  getPaymentHistoryFromDB,
 };

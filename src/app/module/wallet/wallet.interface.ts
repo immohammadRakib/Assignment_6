@@ -16,3 +16,8 @@ export interface IWalletResponse {
   balance?: number;
   paymentUrl?: string; 
 }
+
+export interface IPaymentFilterableFields {
+  searchTerm?: string;
+  status?: string; 
+}
