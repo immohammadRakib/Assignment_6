@@ -3,6 +3,65 @@ import { prisma } from "../../lib/prisma"; // তোমার প্রিসম
 import { OutageStatus, OutageType, TechnicianStatus } from "../../../generated/prisma/enums"; 
 import { IReportOutagePayload, IOutageResponse } from "./outage.interface";
 
+
+
+const createScheduledOutageInDB = async (payload: { areaId: string; startTime: string; endTime: string; reason?: string }) => {
+  const { areaId, startTime, endTime, reason } = payload;
+
+  // ১. আউটরেজ টেবিলে একটি PLANNED এবং SCHEDULED রেকর্ড তৈরি করা
+  const result = await prisma.outage.create({
+    data: {
+      areaId,
+      type: OutageType.SCHEDULED,
+      status: OutageStatus.PLANNED, // আগে থেকে শিডিউল করা হয়েছে তাই PLANNED
+      startTime: new Date(startTime),
+      endTime: new Date(endTime),
+      reason: reason || "Regular Load Shedding Management",
+    },
+    include: {
+      area: { select: { name: true } }
+    }
+  });
+
+  return result;
+};
+
+// খ) সবার জন্য লাইভ লোডশেডিং শিডিউল ডাটা দেখার এপিআই [THE OPEN VIEW SERVICE]
+const getAllScheduledOutagesFromDB = async (query: any) => {
+  const { areaId, status } = query;
+  
+  const andConditions: any[] = [
+    { type: OutageType.SCHEDULED } // শুধুমাত্র শিডিউল করা ডাটা ফিল্টার হবে
+  ];
+
+  if (areaId) {
+    andConditions.push({ areaId: areaId as string });
+  }
+
+  if (status) {
+    andConditions.push({ status: status as OutageStatus });
+  }
+
+  const whereConditions = andConditions.length > 0 ? { AND: andConditions } : {};
+
+  // ডাটাবেজ থেকে এরিয়া ও ফিডার নেস্টিং সহ শিডিউল তুলে আনা
+  const result = await prisma.outage.findMany({
+    where: whereConditions,
+    include: {
+      area: {
+        select: {
+          name: true,
+          feeder: { select: { name: true } }
+        }
+      }
+    },
+    orderBy: { startTime: "asc" }
+  });
+
+  return result;
+};
+
+
 // ==========================================
 // ১. কাস্টমার কমপ্লেন ইঞ্জিন (উইথ অটো-টেকনিশিয়ান অ্যাসাইন)
 // ==========================================
@@ -309,4 +368,6 @@ export const OutageService = {
   resolveOutageJob,
   getActiveOutageByArea,
   assignTechnicianManually,
+  createScheduledOutageInDB,
+  getAllScheduledOutagesFromDB,
 };

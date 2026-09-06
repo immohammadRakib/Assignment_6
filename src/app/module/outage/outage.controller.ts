@@ -4,6 +4,33 @@ import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
 import { OutageService } from "./outage.service";
 
+
+
+const createScheduledOutage = catchAsync(async (req: Request, res: Response) => {
+  const result = await OutageService.createScheduledOutageInDB(req.body);
+
+  sendResponse(res, {
+    statusCode: 201,
+    success: true,
+    message: "⚡ Load shedding schedule created successfully by Power Operator.",
+    data: result,
+  });
+});
+
+// খ) সবার জন্য শিডিউল ডাটা দেখার কন্ট্রোলার
+const getAllScheduledOutages = catchAsync(async (req: Request, res: Response) => {
+  const result = await OutageService.getAllScheduledOutagesFromDB(req.query);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Load shedding schedules retrieved successfully.",
+    data: result,
+  });
+});
+
+
+
 // ১. কাস্টমার কমপ্লেন টিকিট ক্রিয়েশন কন্ট্রোলার
 const reportUnexpectedOutage = catchAsync(async (req: Request, res: Response) => {
   const loginUser = (req as any).user; // JWT মিডলওয়্যার থেকে আসা লগইনড ইউজার
@@ -94,5 +121,7 @@ export const OutageController = {
   reportUnexpectedOutage,
   resolveOutageJob,
   getMyAreaLiveStatus,
-  assignTechnicianManually
+  assignTechnicianManually,
+  createScheduledOutage,
+  getAllScheduledOutages,
 };

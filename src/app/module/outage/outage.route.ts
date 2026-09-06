@@ -12,6 +12,12 @@ router.post(
   OutageController.reportUnexpectedOutage
 );
 
+router.post(
+  "/schedule",
+  auth(Role.POWER_OPERATOR, Role.ADMIN, Role.SUPER_ADMIN),
+  OutageController.createScheduledOutage
+);
+
 // ২. টেকনিশিয়ান মাঠে গিয়ে কাজ শেষ করে বিদ্যুৎ সচল করবে (Protected - Only TECHNICIAN)
 // এখানে রাউট প্যারামিটার হিসেবে :reportId পাস করা হয়েছে
 // router.patch(
@@ -28,9 +34,9 @@ router.patch("/resolve/:reportId", auth(Role.TECHNICIAN), OutageController.resol
 
 // ৩. কাস্টমার বা এডমিন যে কেউ তার এরিয়ার লাইভ বিদ্যুৎ পরিস্থিতি দেখবে (Protected/Public)
 router.get(
-  "/live-status",
-  auth(Role.CUSTOMER, Role.ADMIN, Role.SUPER_ADMIN),
-  OutageController.getMyAreaLiveStatus
+  "/schedule-list",
+  auth(Role.CUSTOMER, Role.TECHNICIAN, Role.ZONE_MANAGER, Role.POWER_OPERATOR, Role.ADMIN, Role.SUPER_ADMIN),
+  OutageController.getAllScheduledOutages
 );
 
 
