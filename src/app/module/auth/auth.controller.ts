@@ -236,18 +236,37 @@ const updateProfile = catchAsync(async (req: Request, res: Response) => {
 
 const getAllUsers = catchAsync(async (req: Request, res: Response) => {
   
-  // ১. কুয়েরি প্যারামস থেকে সম্পূর্ণ গ্রিড হায়ারার্কি ফিল্টার রিসিভ
+  // 💡 ১. আপারকেস এবং লোয়ারকেস এরর হ্যান্ডেলিং লেয়ার (Defensive Guard)
+  const incomingRole = req.query.role as string;
+  let normalizedRole: any = undefined;
+
+  if (incomingRole) {
+    // যেকোনো স্পেস কেটে দিয়ে পুরো স্ট্রিং বড় হাতের (UPPERCASE) বানিয়ে ফেলা
+    const uppercaseRole = incomingRole.trim().toUpperCase();
+    
+    // ডাটাবেস এনামের ভ্যালিড লিস্ট ম্যাচিং চেক করা
+    const validRoles = ["CUSTOMER", "TECHNICIAN", "POWER_OPERATOR", "ZONE_MANAGER", "ADMIN", "SUPER_ADMIN"];
+    
+    if (validRoles.includes(uppercaseRole)) {
+      normalizedRole = uppercaseRole; // এটি এখন ডাটাবেস কুয়েরির জন্য ১০০% সেফ
+    } else {
+      // 👑 ভুল রোল টাইপ করলে সার্ভার ক্র্যাশ না করিয়ে কাস্টমারকে সুন্দর এরর মেসেজ পাঠানো
+      throw new Error(`Invalid role filter: '${incomingRole}'. Valid profiles are: ${validRoles.join(", ")}`);
+    }
+  }
+
+  // ২. কুয়েরি প্যারামস থেকে সম্পূর্ণ গ্রিড হায়ারার্কি ফিল্টার রিসিভ
   const filters = {
     searchTerm: req.query.searchTerm as string,
-    role: req.query.role as any,
+    role: normalizedRole, // 👈 এটি এখন সব সময় বড় হাতের টাইপ-সেফ এনাম ভ্যালু পাস করবে
     areaId: req.query.areaId as string,
-    feederId: req.query.feederId as string,               // 💡 নতুন: ফিডার লাইন ফিল্টার
+    feederId: req.query.feederId as string,               
     substationId: req.query.substationId as string,       
     zoneId: req.query.zoneId as string,
     powerAuthorityId: req.query.powerAuthorityId as string, 
   };
 
-  // ২. প্যাজিনেশন এবং সর্টিং (ডিফোল্ট লিমিট ৫ সচল)
+  // ৩. প্যাজিনেশন এবং সর্টিং (ডিফোল্ট লিমিট ৫ সচল)
   const options = {
     page: req.query.page ? Number(req.query.page) : undefined,
     limit: req.query.limit ? Number(req.query.limit) : undefined,
@@ -255,21 +274,25 @@ const getAllUsers = catchAsync(async (req: Request, res: Response) => {
     sortOrder: req.query.sortOrder as any,
   };
 
+  // সার্ভিস লেয়ার এক্সিকিউশন
   const result = await AuthService.getAllUsersFromDB(filters, options);
 
+  // 👑 ৪. মেটা ডেটাকে ওপরে (Top Layer) সাজিয়ে রেসপন্স পাঠানো
+  // (মনে রাখবেন আপনার sendResponse ইউটিলিটি ফাইলের ভেতরেও 'meta' প্রোপার্টিটি 'message' এর ওপরে রাখতে হবে)
   sendResponse(res, {
-  statusCode: httpStatus.OK,
-  success: true,
-  message: "Flawless hierarchical grid user registry compiled and fetched successfully!",
-  meta: {
-    page: result.meta.page,
-    limit: result.meta.limit,
-    total: result.meta.total,
-    totalPages: result.meta.totalPage // 👈 সার্ভিসের totalPage কে ইন্টারফেসের totalPages এ ম্যাপ করে দিলেন
-  },
-  data: result.data,
+    statusCode: httpStatus.OK,
+    success: true,
+    meta: {
+      page: Number(result.meta.page),
+      limit: Number(result.meta.limit),
+      total: Number(result.meta.total),
+      totalPages: Number(result.meta.totalPage || (result.meta as any).totalPages) // দুই ধরণের স্পেলিং সেফটি হ্যান্ডেল করা হলো
+    },
+    message: "Flawless hierarchical grid user registry compiled and fetched successfully!",
+    data: result.data,
+  });
 });
-});
+
 
 
 export const AuthController = {
