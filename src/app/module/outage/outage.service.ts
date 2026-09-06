@@ -9,6 +9,8 @@ import {
   IOutageResponse,
   IScheduledOutagePayload,
 } from "./outage.interface";
+import { paginationHelper } from "../../utils/paginationHelper";
+import { Prisma } from "../../../generated/prisma/browser";
 
 const createScheduledOutageInDB = async (payload: IScheduledOutagePayload) => {
   const { areaId, startTime, endTime, reason } = payload;
@@ -30,10 +32,48 @@ const createScheduledOutageInDB = async (payload: IScheduledOutagePayload) => {
   return result;
 };
 
-const getAllScheduledOutagesFromDB = async (query: any) => {
-  const { areaId, status } = query;
+// const getAllScheduledOutagesFromDB = async (query: any) => {
+//   const { areaId, status } = query;
 
-  const andConditions: any[] = [{ type: OutageType.SCHEDULED }];
+//   const andConditions: any[] = [{ type: OutageType.SCHEDULED }];
+
+//   if (areaId) {
+//     andConditions.push({ areaId: areaId as string });
+//   }
+
+//   if (status) {
+//     andConditions.push({ status: status as OutageStatus });
+//   }
+
+//   const whereConditions =
+//     andConditions.length > 0 ? { AND: andConditions } : {};
+
+//   const result = await prisma.outage.findMany({
+//     where: whereConditions,
+//     include: {
+//       area: {
+//         select: {
+//           name: true,
+//           feeder: { select: { name: true } },
+//         },
+//       },
+//     },
+//     orderBy: { startTime: "asc" },
+//   });
+
+//   return result;
+// };
+
+
+const getAllScheduledOutagesFromDB = async (query: any) => {
+  const { areaId, status, searchTerm, ...paginationOptions } = query;
+
+  const { page, limit, skip, sortBy, sortOrder } = 
+    paginationHelper.calculatePagination(paginationOptions);
+
+  const andConditions: Prisma.OutageWhereInput[] = [
+    { type: OutageType.SCHEDULED }
+  ];
 
   if (areaId) {
     andConditions.push({ areaId: areaId as string });
@@ -43,11 +83,29 @@ const getAllScheduledOutagesFromDB = async (query: any) => {
     andConditions.push({ status: status as OutageStatus });
   }
 
-  const whereConditions =
+  if (searchTerm) {
+    andConditions.push({
+      area: {
+        name: { contains: searchTerm as string, mode: "insensitive" }
+      }
+    });
+  }
+
+  const whereConditions: Prisma.OutageWhereInput =
     andConditions.length > 0 ? { AND: andConditions } : {};
 
-  const result = await prisma.outage.findMany({
+  const sortConditions: any = {};
+  if (sortBy && sortOrder) {
+    sortConditions[sortBy] = sortOrder;
+  } else {
+    sortConditions["startTime"] = "asc"; 
+  }
+
+  const data = await prisma.outage.findMany({
     where: whereConditions,
+    skip: Number(skip),
+    take: Number(limit),
+    orderBy: sortConditions,
     include: {
       area: {
         select: {
@@ -56,11 +114,23 @@ const getAllScheduledOutagesFromDB = async (query: any) => {
         },
       },
     },
-    orderBy: { startTime: "asc" },
   });
 
-  return result;
+  const total = await prisma.outage.count({
+    where: whereConditions,
+  });
+
+  return {
+    meta: {
+      page,
+      limit,
+      total,
+      totalPage: Math.ceil(total / limit),
+    },
+    data,
+  };
 };
+
 
 const reportUnexpectedOutage = async (payload: any): Promise<any> => {
   const { customerId, areaId, description } = payload;
