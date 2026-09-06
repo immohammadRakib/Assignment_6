@@ -211,6 +211,29 @@ const resetPassword = catchAsync(async (req: Request, res: Response) => {
 });
 
 
+
+const updateProfile = catchAsync(async (req: Request, res: Response) => {
+  const user = (req as any).user; // JWT ভেরিফিকেশন মিডলওয়্যার থেকে আসা সেশন ইউজার
+
+  const userId = user?.id || user?.userId;
+  const role = user?.role;
+
+  if (!userId || !role) {
+    throw new Error("Authentication failed! Active user session contexts are missing.");
+  }
+
+  // বডি থেকে আসা টাইপ-সেফ পে-লোড নিয়ে সার্ভিস লেয়ার কল করা
+  const result = await AuthService.updateProfileInDB(userId, role, req.body);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "User and core structural profile synchronized and updated successfully!",
+    data: result
+  });
+});
+
+
 export const AuthController = {
 	registerPatient,
 	loginUser,
@@ -219,5 +242,6 @@ export const AuthController = {
 	googleLogin,
 	forgotPassword,
 	resetPassword,
-	verifyPatientEmail
+	verifyPatientEmail,
+	updateProfile
 };

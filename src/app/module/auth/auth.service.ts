@@ -19,7 +19,8 @@ import type {
   IRequestUser,
   IForgotPasswordPayload,
   IVerifyEmailPayload,
-  IResetPasswordPayload
+  IResetPasswordPayload,
+  IUpdateProfilePayload
 } from "./auth.interface";
 import { redisClient } from "../../lib/redis";
 import { TokenPayload } from "google-auth-library";
@@ -994,28 +995,28 @@ const forgotPassword = async (payload : IForgotPasswordPayload) => {
 
 	const html = await ejs.renderFile(tempatePath, templateData)
 
-	// await transporter.sendMail({
-	// 	from : config.email_sender,
-	// 	to : isUserExist.email,
-	// 	subject : "Forgot Password",
-	// 	// text : `Your OTP is ${otp}`
-	// 	// html: `<h1>Your OTP is ${otp}</h1>`
-	// 	html
-	// })
+	await transporter.sendMail({
+		from : config.email_sender,
+		to : isUserExist.email,
+		subject : "Forgot Password",
+		// text : `Your OTP is ${otp}`
+		// html: `<h1>Your OTP is ${otp}</h1>`
+		html
+	})
 
   // ⚡ try-catch ব্লক দিয়ে নোডমেইলারকে র‍্যাপ করা হলো যেন মেইল ফেল করলেও সার্ভার ক্র্যাশ না করে [THE SAFETY SHIELD]
-try {
-	await transporter.sendMail({
-		from: config.email_sender,
-		to: isUserExist.email,
-		subject: "Password Changed",
-		html
-	});
-	console.log(`✉️ Notification Email successfully sent to: ${isUserExist.email}`);
-} catch (mailError) {
-	// মেইল কানেকশন ইকোনমিক বা ETIMEDOUT এরর হলে সার্ভার এটি সেফলি হ্যান্ডেল করবে
-	console.log("⚠️ WARNING: Mail Server Timeout/Network Error caught safely! Express server will keep running.");
-}
+// try {
+// 	await transporter.sendMail({
+// 		from: config.email_sender,
+// 		to: isUserExist.email,
+// 		subject: "Password Changed",
+// 		html
+// 	});
+// 	console.log(`✉️ Notification Email successfully sent to: ${isUserExist.email}`);
+// } catch (mailError) {
+// 	// মেইল কানেকশন ইকোনমিক বা ETIMEDOUT এরর হলে সার্ভার এটি সেফলি হ্যান্ডেল করবে
+// 	console.log("⚠️ WARNING: Mail Server Timeout/Network Error caught safely! Express server will keep running.");
+// }
 
 }
 
@@ -1083,30 +1084,105 @@ const resetPassword = async (payload : IResetPasswordPayload) => {
 	const html = await ejs.renderFile(tempatePath, templateData )
 
 
-	// await transporter.sendMail({
-	// 	from: config.email_sender,
-	// 	to: isUserExist.email,
-	// 	subject: "Password Changed",
-	// 	// text : `Your OTP is ${otp}`
-	// 	// html: `<h1>Your Password Is Changed</h1>`
-	// 	html
-	// })
-
-  // ⚡ try-catch ব্লক দিয়ে নোডমেইলারকে র‍্যাপ করা হলো যেন মেইল ফেল করলেও সার্ভার ক্র্যাশ না করে [THE SAFETY SHIELD]
-try {
 	await transporter.sendMail({
 		from: config.email_sender,
 		to: isUserExist.email,
 		subject: "Password Changed",
+		// text : `Your OTP is ${otp}`
+		// html: `<h1>Your Password Is Changed</h1>`
 		html
-	});
-	console.log(`✉️ Notification Email successfully sent to: ${isUserExist.email}`);
-} catch (mailError) {
-	// মেইল কানেকশন ইকোনমিক বা ETIMEDOUT এরর হলে সার্ভার এটি সেফলি হ্যান্ডেল করবে
-	console.log("⚠️ WARNING: Mail Server Timeout/Network Error caught safely! Express server will keep running.");
-}
+	})
+
+  // ⚡ try-catch ব্লক দিয়ে নোডমেইলারকে র‍্যাপ করা হলো যেন মেইল ফেল করলেও সার্ভার ক্র্যাশ না করে [THE SAFETY SHIELD]
+// try {
+// 	await transporter.sendMail({
+// 		from: config.email_sender,
+// 		to: isUserExist.email,
+// 		subject: "Password Changed",
+// 		html
+// 	});
+// 	console.log(`✉️ Notification Email successfully sent to: ${isUserExist.email}`);
+// } catch (mailError) {
+// 	// মেইল কানেকশন ইকোনমিক বা ETIMEDOUT এরর হলে সার্ভার এটি সেফলি হ্যান্ডেল করবে
+// 	console.log("⚠️ WARNING: Mail Server Timeout/Network Error caught safely! Express server will keep running.");
+// }
 
 }
+
+const updateProfileInDB = async (userId: string, role: Role, payload: IUpdateProfilePayload) => {
+  const { 
+    name, phone, gender, address, profileImage, 
+    areaId, meterNumber, officeRoomNo, zoneId, specialization 
+  } = payload;
+
+  return await prisma.$transaction(async (tx) => {
+    
+    // ১. মেইন User টেবিল আপডেট (বেসিক ফিল্ডস)
+    // প্রিজমার নিয়ম অনুযায়ী: কোনো ফিল্ডের মান undefined হলে ডাটাবেসে ওটি আপডেট না হয়ে আগেরটাই বহাল থাকে
+    const updatedUser = await tx.user.update({
+      where: { id: userId },
+      data: {
+        name: name || undefined,
+        phone: phone !== undefined ? phone : undefined,
+        gender: gender !== undefined ? gender : undefined,
+        address: address !== undefined ? address : undefined,
+        profileImage: profileImage !== undefined ? profileImage : undefined,
+      },
+      omit: { password: true } // পাসওয়ার্ড রেসপন্স থেকে হাইড রাখা
+    });
+
+    // ২. রোল অনুযায়ী ডাইনামিকলি চাইল্ড প্রোফাইল টেবিল আপডেট
+    let updatedProfile = null;
+
+    switch (role) {
+      case Role.CUSTOMER:
+        updatedProfile = await tx.customer.update({
+          where: { userId: userId },
+          data: {
+            // ইন্টারফেসের string | null | undefined প্রোপার্টিকে প্রিজমার সেফ টাইপে রূপান্তর
+            areaId: areaId !== undefined ? (areaId as string | null) : undefined,
+            meterNumber: meterNumber ? (meterNumber as string) : undefined,
+          },
+          include: { area: true }
+        });
+        break;
+
+      case Role.TECHNICIAN:
+        updatedProfile = await tx.technician.update({
+          where: { userId: userId },
+          data: {
+            zoneId: zoneId !== undefined ? (zoneId as string | null) : undefined,
+            specialization: specialization !== undefined ? (specialization as string | null) : undefined,
+          },
+          include: { zone: true }
+        });
+        break;
+
+      case Role.ZONE_MANAGER:
+        updatedProfile = await tx.zoneManager.update({
+          where: { userId: userId },
+          data: {
+            zoneId: zoneId !== undefined ? (zoneId as string | null) : undefined,
+            officeRoomNo: officeRoomNo !== undefined ? (officeRoomNo as string | null) : undefined,
+          },
+          include: { zone: true }
+        });
+        break;
+
+      default:
+        // ADMIN বা SUPER_ADMIN এর আলাদা প্রোফাইল টেবিল নেই
+        break;
+    }
+
+    return {
+      user: updatedUser,
+      profile: updatedProfile
+    };
+  });
+};
+
+
+
 
 export const AuthService = {
   registerUser,
@@ -1117,4 +1193,5 @@ export const AuthService = {
   forgotPassword,
 	resetPassword,
   verifyEmail,
+  updateProfileInDB
 };

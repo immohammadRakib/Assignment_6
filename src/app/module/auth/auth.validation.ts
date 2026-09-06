@@ -111,10 +111,29 @@ const ResetPasswordZodSchema = z.object({
     otp: z.string().length(6)
 });
 
+
+const UpdateProfileZodSchema = z.object({
+  // ১. মেইন ইউজারের অপশনাল ফিল্ডসমূহ
+  name: z.string().min(3).max(40).optional(),
+  phone: z.string().nullable().optional(),
+  gender: z.enum(["MALE", "FEMALE", "OTHER"]).nullable().optional(),
+  address: z.string().nullable().optional(),
+  profileImage: z.string().url("Invalid Image URL format").nullable().optional(),
+
+  // ২. চাইল্ড বা প্রোফাইল টেবিলের অপশনাল ফিল্ডসমূহ
+  areaId: z.string().uuid("Invalid Area UUID").nullable().optional(),
+  meterNumber: z.string().optional(),
+  zoneId: z.string().uuid("Invalid Zone UUID").nullable().optional(),
+  officeRoomNo: z.string().nullable().optional(),
+  specialization: z.string().nullable().optional()
+});
+
+
 export const UserValidation = {
     UserRegistrationZodSchema,
     UserEmailVerifyZodSchema,
     LoginZodSchema,
     ForgotPasswordZodSchema,
     ResetPasswordZodSchema,
+    UpdateProfileZodSchema
 };
