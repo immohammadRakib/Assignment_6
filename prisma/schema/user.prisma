@@ -18,6 +18,8 @@ model User {
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
+  auditLogs          AuditLog[] 
+
   customer           Customer?    
   technician         Technician?
   zoneManager        ZoneManager?

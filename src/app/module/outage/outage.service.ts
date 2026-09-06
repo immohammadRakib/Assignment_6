@@ -423,6 +423,7 @@ const getActiveOutageByArea = async (areaId: string) => {
 const assignTechnicianManually = async (
   reportId: string,
   technicianId: string,
+  managerUserId: string,
 ): Promise<IManualAssignmentResponse> => {
   return await prisma.$transaction(async (tx) => {
     // ১. প্রথমে চেক করা যে এই কমপ্লেন বা আউটেজ রিপোর্টটি আসলেই ডাটাবেসে আছে কিনা
@@ -473,6 +474,14 @@ const assignTechnicianManually = async (
     await tx.technician.update({
       where: { id: technicianId },
       data: { status: TechnicianStatus.ON_DUTY },
+    });
+
+     await tx.auditLog.create({
+      data: {
+        userId: managerUserId, // টোকেন থেকে আসা লগইনড জোন ম্যানেজারের ইউজার আইডি
+        action: "ASSIGN_TECHNICIAN",
+        details: `Zone Manager manually assigned Technician (ID: ${technicianId}) to Outage Report (ID: ${reportId}).`,
+      },
     });
 
     return {
