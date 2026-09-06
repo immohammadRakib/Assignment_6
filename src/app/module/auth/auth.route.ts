@@ -49,5 +49,13 @@ router.post("/forgot-password",
 router.post("/reset-password",
 	validateRequest(UserValidation.ResetPasswordZodSchema),
 	 AuthController.resetPassword);
+
+router.get(
+  "/all-users",
+  auth(Role.ADMIN, Role.SUPER_ADMIN), // কাস্টমার বা টেকনিশিয়ান এই রাউটে ঢুকতে পারবে না
+  AuthController.getAllUsers
+);
+  
+
 export const AuthRoutes = router;
 	

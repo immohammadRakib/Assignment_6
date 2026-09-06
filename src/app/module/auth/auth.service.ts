@@ -4,7 +4,8 @@ import {
   AuthProvider,
   Role,
   UserStatus,
-} from "../../../generated/prisma/enums";
+} from "../../../generated/prisma/enums"; 
+// import type * as Prisma from "@prisma/client";
 import config from "../../config";
 import crypto from "crypto";
 import path from "path";
@@ -20,12 +21,14 @@ import type {
   IForgotPasswordPayload,
   IVerifyEmailPayload,
   IResetPasswordPayload,
-  IUpdateProfilePayload
+  IUpdateProfilePayload,
+  IUserQueryFilters,
 } from "./auth.interface";
 import { redisClient } from "../../lib/redis";
 import { TokenPayload } from "google-auth-library";
 import { googleClient } from "../../lib/googleAuth";
-import { BlockList } from "net";
+import { paginationHelper } from "../../utils/paginationHelper";
+import { Prisma } from "../../../generated/prisma/browser";
 
 // const registerPatient = async (payload: IRegisterPatientPayload) => {
 //   const { name, password } = payload;
@@ -1182,6 +1185,139 @@ const updateProfileInDB = async (userId: string, role: Role, payload: IUpdatePro
 };
 
 
+const getAllUsersFromDB = async (filters: IUserQueryFilters, options: any) => {
+  const { searchTerm, role, areaId, feederId, substationId, zoneId, powerAuthorityId } = filters;
+  const { page, limit, skip, sortBy, sortOrder } = paginationHelper.calculatePagination(options);
+
+  const andConditions: Prisma.UserWhereInput[] = [];
+
+  // ক) সার্চ টার্ম (নাম বা ইমেইল)
+  if (searchTerm) {
+    andConditions.push({
+      OR: [
+        { name: { contains: searchTerm, mode: 'insensitive' } },
+        { email: { contains: searchTerm, mode: 'insensitive' } },
+      ],
+    });
+  }
+
+  // খ) রোল ভিত্তিক ফিল্টারিং
+  if (role) {
+    andConditions.push({ role });
+  }
+
+  // গ) এরিয়া আইডি দিয়ে ফিল্টার
+  if (areaId) {
+    andConditions.push({
+      customer: { areaId: areaId },
+    });
+  }
+
+  // 👑 ঘ) ফিডার আইডি দিয়ে ফিল্টার (The Core Fix: এই ফিডারের সব কাস্টমার ট্র্যাক করা)
+  if (feederId) {
+    andConditions.push({
+      customer: {
+        area: { feederId: feederId }
+      }
+    });
+  }
+
+  // 👑 ঙ) সাবস্টেশন আইডি দিয়ে ফিল্টার (অপারেটর এবং ওই সাবস্টেশনের ফিডার হয়ে আসা কাস্টমার)
+  if (substationId) {
+    andConditions.push({
+      OR: [
+        { powerOperator: { substationId: substationId } }, 
+        { customer: { area: { feeder: { substationId: substationId } } } } 
+      ]
+    });
+  }
+
+  // চ) জোন আইডি দিয়ে ফিল্টার (ম্যানেজার, টেকনিশিয়ান, অপারেটর এবং কাস্টমার)
+  if (zoneId) {
+    andConditions.push({
+      OR: [
+        { zoneManager: { zoneId: zoneId } },
+        { technician: { zoneId: zoneId } },
+        { powerOperator: { substation: { zoneId: zoneId } } },
+        { customer: { area: { feeder: { substation: { zoneId: zoneId } } } } }
+      ],
+    });
+  }
+
+  // ছ) পাওয়ার অথরিটি আইডি দিয়ে ডিপ রিলেশন ফিল্টারিং (Central Board Level Check)
+  if (powerAuthorityId) {
+    andConditions.push({
+      OR: [
+        { zoneManager: { zone: { powerAuthorityId } } },
+        { technician: { zone: { powerAuthorityId } } },
+        { powerOperator: { substation: { zone: { powerAuthorityId } } } },
+        { customer: { area: { feeder: { substation: { zone: { powerAuthorityId } } } } } }
+      ]
+    });
+  }
+
+  const whereConditions: Prisma.UserWhereInput = andConditions.length > 0 ? { AND: andConditions } : {};
+
+  // ২. ডাটাবেস থেকে ফিডার চেইন সহ ডিপ রিলেশনাল ডেটা তুলে আনা
+  const result = await prisma.user.findMany({
+    where: whereConditions,
+    skip,
+    take: limit,
+    orderBy: {
+      [sortBy]: sortOrder,
+    },
+    include: {
+      customer: {
+        include: {
+          area: {
+            include: {
+              feeder: { // 💡 ফিডার মডেল এবং তার প্যারেন্ট চেইন নিখুঁত ইনক্লুড
+                include: {
+                  substation: {
+                    include: { zone: { include: { powerAuthority: true } } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      powerOperator: {
+        include: {
+          substation: {
+            include: { 
+              feeders: true, // 💡 অপারেটর তার সাবস্টেশনের কোন কোন ফিডার লাইনে আছে তাও দেখতে পাবে
+              zone: { include: { powerAuthority: true } } 
+            }
+          }
+        }
+      },
+      technician: {
+        include: { zone: { include: { powerAuthority: true } } }
+      },
+      zoneManager: {
+        include: { zone: { include: { powerAuthority: true } } }
+      }
+    },
+    omit: { password: true }
+  });
+
+  const total = await prisma.user.count({
+    where: whereConditions,
+  });
+
+  return {
+    meta: {
+      page,
+      limit,
+      total,
+      totalPage: Math.ceil(total / limit),
+    },
+    data: result,
+  };
+};
+
+
 
 
 export const AuthService = {
@@ -1193,5 +1329,6 @@ export const AuthService = {
   forgotPassword,
 	resetPassword,
   verifyEmail,
-  updateProfileInDB
+  updateProfileInDB,
+  getAllUsersFromDB,
 };

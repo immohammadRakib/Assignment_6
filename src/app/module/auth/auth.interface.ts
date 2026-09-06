@@ -66,3 +66,13 @@ export interface IUpdateProfilePayload {
   officeRoomNo?: string | null;    // 👈 আপনার রেসপন্সের 'officeRoomNo'
   zoneId?: string | null;          // 👈 আপনার রেসপন্সের 'zoneId' (জোন ম্যাপ করার জন্য)
 }
+
+export interface IUserQueryFilters {
+  searchTerm?: string;
+  role?: Role;
+  areaId?: string;
+  feederId?: string;           // 💡 নতুন: নির্দিষ্ট ফিডার লাইনের ইউজার খোঁজা
+  substationId?: string;       // সাবস্টেশন ফিল্টার
+  zoneId?: string;             // জোন ফিল্টার
+  powerAuthorityId?: string;   // পাওয়ার অথরিটি ফিল্টার
+}

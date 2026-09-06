@@ -234,6 +234,44 @@ const updateProfile = catchAsync(async (req: Request, res: Response) => {
 });
 
 
+const getAllUsers = catchAsync(async (req: Request, res: Response) => {
+  
+  // ১. কুয়েরি প্যারামস থেকে সম্পূর্ণ গ্রিড হায়ারার্কি ফিল্টার রিসিভ
+  const filters = {
+    searchTerm: req.query.searchTerm as string,
+    role: req.query.role as any,
+    areaId: req.query.areaId as string,
+    feederId: req.query.feederId as string,               // 💡 নতুন: ফিডার লাইন ফিল্টার
+    substationId: req.query.substationId as string,       
+    zoneId: req.query.zoneId as string,
+    powerAuthorityId: req.query.powerAuthorityId as string, 
+  };
+
+  // ২. প্যাজিনেশন এবং সর্টিং (ডিফোল্ট লিমিট ৫ সচল)
+  const options = {
+    page: req.query.page ? Number(req.query.page) : undefined,
+    limit: req.query.limit ? Number(req.query.limit) : undefined,
+    sortBy: req.query.sortBy as string,
+    sortOrder: req.query.sortOrder as any,
+  };
+
+  const result = await AuthService.getAllUsersFromDB(filters, options);
+
+  sendResponse(res, {
+  statusCode: httpStatus.OK,
+  success: true,
+  message: "Flawless hierarchical grid user registry compiled and fetched successfully!",
+  meta: {
+    page: result.meta.page,
+    limit: result.meta.limit,
+    total: result.meta.total,
+    totalPages: result.meta.totalPage // 👈 সার্ভিসের totalPage কে ইন্টারফেসের totalPages এ ম্যাপ করে দিলেন
+  },
+  data: result.data,
+});
+});
+
+
 export const AuthController = {
 	registerPatient,
 	loginUser,
@@ -243,5 +281,6 @@ export const AuthController = {
 	forgotPassword,
 	resetPassword,
 	verifyPatientEmail,
-	updateProfile
+	updateProfile,
+	getAllUsers
 };
