@@ -104,12 +104,19 @@ const createZoneZodSchema = z.object({
   name: z.string({
     message: "Zone name is required",
   }),
+  // 💡 এই 'code' ফিল্ডটি যুক্ত করুন
+  code: z
+    .string({
+      message: "Zone unique code is required",
+    })
+    .toUpperCase(), 
   powerAuthorityId: z
     .string({
       message: "Valid Power Authority ID is required",
     })
     .uuid("Invalid Power Authority ID format"),
 });
+
 
 const createSubstationZodSchema = z.object({
   name: z.string({
