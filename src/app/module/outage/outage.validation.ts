@@ -65,13 +65,30 @@ const assignTechnicianManuallyZodSchema = z.object({
 // 💡 ৪. URL Parameter Validation এর জন্য বিশেষ দ্রষ্টব্য:
 // যেহেতু আপনার মিডলওয়্যার শুধুমাত্র req.body চেক করে, তাই URL Params (যেমন: /resolve/:reportId) 
 // ভ্যালিডেশনের জন্য মিডলওয়্যারে বডির বদলে req.params পাঠানো লাগবে, অথবা এটি স্কিমা ছাড়াই কন্ট্রোলার লেভেলে হ্যান্ডেল করা সেফ।
+// const resolveOutageJobZodSchema = z.object({
+//   reportId: z
+//     .string({
+//       message: "Report ID is required in URL parameter",
+//     })
+//     .uuid("Invalid Report ID format in URL parameter"),
+// });
+
 const resolveOutageJobZodSchema = z.object({
-  reportId: z
-    .string({
-      message: "Report ID is required in URL parameter",
-    })
-    .uuid("Invalid Report ID format in URL parameter"),
+  // 💡 জেড-কে বলে দেওয়া হচ্ছে আইডিটি URL 'params' এর ভেতর থাকবে
+  params: z.object({
+    reportId: z
+      .string({
+        message: "Report ID is required in URL parameter",
+      })
+      .uuid("Invalid Report ID format in URL parameter"),
+  }),
+  
+  // 💡 যদি বডি থেকে নোটস বা কোনো ডাটা নিতে চান
+  body: z.object({
+    notes: z.string().min(5, "Notes must be at least 5 characters long").optional(),
+  }).optional(),
 });
+
 
 export const OutageValidations = {
   createScheduledOutageZodSchema,

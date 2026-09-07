@@ -440,59 +440,62 @@ const reportUnexpectedOutage = async (payload: any): Promise<any> => {
 };
 
 
-const resolveOutageJob = async (reportId: string): Promise<IOutageResolveResponse> => {
-  return await prisma.$transaction(async (tx) => {
-    // ১. রিপোর্টটি খোঁজা (🛡️ টাইপ সেফটির জন্য outageId স্কিমা অনুযায়ী select বা include করে নেওয়া ভালো)
-    const report = await tx.outageReport.findUnique({
-      where: { id: reportId },
-    });
+// const resolveOutageJob = async (reportId: string): Promise<IOutageResolveResponse> => {
+//   return await prisma.$transaction(async (tx) => {
+//     // ১. রিপোর্টটি খোঁজা (🛡️ টাইপ সেফটির জন্য outageId স্কিমা অনুযায়ী select বা include করে নেওয়া ভালো)
+//     const report = await tx.outageReport.findUnique({
+//       where: { id: reportId },
+//     });
 
-    if (!report) {
-      throw new Error("Complaint report ticket not found!");
-    }
+//     if (!report) {
+//       throw new Error("Complaint report ticket not found!");
+//     }
 
-    // ২. অলরেডি রিস্টোর্ডড বা রিজলভড কিনা চেক করা
-    if (report.status === OutageStatus.RESTORED) {
-      throw new Error("This job is already resolved!");
-    }
+//     // ২. অলরেডি রিস্টোর্ডড বা রিজলভড কিনা চেক করা
+//     if (report.status === OutageStatus.RESTORED) {
+//       throw new Error("This job is already resolved!");
+//     }
 
-    // ৩. আউটেজ রিপোর্টের স্ট্যাটাস RESTORED করা
-    const updatedReport = await tx.outageReport.update({
-      where: { id: reportId },
-      data: {
-        status: OutageStatus.RESTORED,
-      },
-    });
+//     // ৩. আউটেজ রিপোর্টের স্ট্যাটাস RESTORED করা
+//     const updatedReport = await tx.outageReport.update({
+//       where: { id: reportId },
+//       data: {
+//         status: OutageStatus.RESTORED,
+//       },
+//     });
 
-    // ৪. 👑 অটো-সেটআপ: টেকনিশিয়ানকে ফ্রি (AVAILABLE) করা
-    if (report.technicianId) {
-      await tx.technician.update({
-        where: { id: report.technicianId },
-        data: {
-          status: TechnicianStatus.AVAILABLE,
-        },
-      });
-    }
+//     // ৪. 👑 অটো-সেটআপ: টেকনিশিয়ানকে ফ্রি (AVAILABLE) করা
+//     if (report.technicianId) {
+//       await tx.technician.update({
+//         where: { id: report.technicianId },
+//         data: {
+//           status: TechnicianStatus.AVAILABLE,
+//         },
+//       });
+//     }
 
-    // ৫. ⚡ টাইপ সেফ ওয়েতে মেইন Outage টেবিলের স্ট্যাটাস ও টাইম ট্র্যাক করা
-    // আপনার প্রিজমা স্কিমা অনুযায়ী যদি ফিল্ডটির নাম 'outageId' হয়ে থাকে:
-    if ('outageId' in report && (report as any).outageId) {
-      await tx.outage.update({
-        where: { id: (report as any).outageId },
-        data: {
-          status: OutageStatus.RESTORED,
-          endTime: new Date(), // মডার্ন ডাটা প্র্যাকটিস অনুযায়ী কখন শেষ হলো তা সেভ করা
-        },
-      });
-    }
+//     // ৫. ⚡ টাইপ সেফ ওয়েতে মেইন Outage টেবিলের স্ট্যাটাস ও টাইম ট্র্যাক করা
+//     // আপনার প্রিজমা স্কিমা অনুযায়ী যদি ফিল্ডটির নাম 'outageId' হয়ে থাকে:
+//     if ('outageId' in report && (report as any).outageId) {
+//       await tx.outage.update({
+//         where: { id: (report as any).outageId },
+//         data: {
+//           status: OutageStatus.RESTORED,
+//           endTime: new Date(), // মডার্ন ডাটা প্র্যাকটিস অনুযায়ী কখন শেষ হলো তা সেভ করা
+//         },
+//       });
+//     }
 
-    return {
-      success: true,
-      message: "⚡ Power Restored successfully! Job resolved directly via report ticket.",
-      report: updatedReport,
-    };
-  });
-};
+//     return {
+//       success: true,
+//       message: "⚡ Power Restored successfully! Job resolved directly via report ticket.",
+//       report: updatedReport,
+//     };
+//   });
+// };
+
+
+
 
 
 const getActiveOutageByArea = async (areaId: string) => {
