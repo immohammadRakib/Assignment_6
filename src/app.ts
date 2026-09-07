@@ -18,7 +18,6 @@ import { WalletRoutes } from "./app/module/wallet/wallet.route";
 import { AuditLogRoutes } from "./app/module/audit/auditLog.route";
 import { DashboardRoutes } from "./app/module/dashboard/dashboard.route";
 import { globalApiRateLimiter } from "./app/middleware/rateLimiter";
-import { landingPageTemplate } from "./app/templates/landingPage.template";
 
 const app: Application = express();
 
@@ -72,7 +71,7 @@ app.get("/test", async (req: Request, res: Response, next: NextFunction) => {
 app.get("/", async (req: Request, res: Response) => {
   res.status(httpStatus.OK).json({
     success: true,
-    message: landingPageTemplate(),
+    message: "Welcome to Smart Power Grid Management System Backend",
   });
 });
 
