@@ -1,7 +1,7 @@
 import express from "express";
 import { Role } from "../../../generated/prisma/enums";
 import { auth } from "../../middleware/checkAuth";
-import { validateRequest } from "../../middleware/validateRequest"; 
+import { validateRequest } from "../../middleware/validateRequest";
 import { GridControllers } from "./grid.controller";
 import { GridValidations } from "./grid.validation";
 
@@ -44,33 +44,56 @@ router.post(
 
 router.delete(
   "/area/:id",
-  auth(Role.ADMIN, Role.SUPER_ADMIN), 
-  GridControllers.softDeleteArea
+  auth(Role.ADMIN, Role.SUPER_ADMIN),
+  GridControllers.softDeleteArea,
 );
 
 router.get(
   "/zone",
-  auth(Role.ADMIN, Role.SUPER_ADMIN, Role.CUSTOMER, Role.ZONE_MANAGER, Role.POWER_OPERATOR),
+  auth(
+    Role.ADMIN,
+    Role.SUPER_ADMIN,
+    Role.CUSTOMER,
+    Role.ZONE_MANAGER,
+    Role.POWER_OPERATOR,
+  ),
   GridControllers.getAllZones,
 );
 
 router.get(
   "/substation",
-  auth(Role.ADMIN, Role.SUPER_ADMIN, Role.CUSTOMER, Role.ZONE_MANAGER, Role.POWER_OPERATOR),
+  auth(
+    Role.ADMIN,
+    Role.SUPER_ADMIN,
+    Role.CUSTOMER,
+    Role.ZONE_MANAGER,
+    Role.POWER_OPERATOR,
+  ),
   GridControllers.getAllSubstations,
 );
 
 router.get(
   "/feeder",
-  auth(Role.ADMIN, Role.SUPER_ADMIN, Role.CUSTOMER, Role.ZONE_MANAGER, Role.POWER_OPERATOR),
+  auth(
+    Role.ADMIN,
+    Role.SUPER_ADMIN,
+    Role.CUSTOMER,
+    Role.ZONE_MANAGER,
+    Role.POWER_OPERATOR,
+  ),
   GridControllers.getAllFeeders,
 );
 
 router.get(
   "/area",
-  auth(Role.ADMIN, Role.SUPER_ADMIN, Role.CUSTOMER, Role.ZONE_MANAGER, Role.POWER_OPERATOR),
+  auth(
+    Role.ADMIN,
+    Role.SUPER_ADMIN,
+    Role.CUSTOMER,
+    Role.ZONE_MANAGER,
+    Role.POWER_OPERATOR,
+  ),
   GridControllers.getAllAreas,
 );
-
 
 export const GridRoutes = router;

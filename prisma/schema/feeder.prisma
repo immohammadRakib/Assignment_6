@@ -1,9 +1,9 @@
 model Feeder {
   id           String      @id @default(uuid(7))
-  name         String      // e.g., "Feeder-05 (Hospital Road)"
+  name         String      
   
   substationId String
-  substation   Substation  @relation(fields: [substationId], references: [id], onDelete: Cascade) // s বাদ দেওয়া হলো
+  substation   Substation  @relation(fields: [substationId], references: [id], onDelete: Cascade)
 
   areas        Area[]
 

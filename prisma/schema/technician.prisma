@@ -3,7 +3,6 @@ model Technician {
   status         TechnicianStatus @default(AVAILABLE)
   specialization String?        
   
-  // 🛠️ আইডি এবং রিলেশন অপtional করা হলো
   zoneId         String?
   zone           DistributionZone? @relation(fields: [zoneId], references: [id])
 

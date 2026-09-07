@@ -55,7 +55,7 @@ const createArea = catchAsync(async (req: Request, res: Response) => {
 });
 
 const softDeleteArea = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params; 
+  const { id } = req.params;
 
   const result = await GridServices.softDeleteAreaFromDB(id as string);
 
@@ -66,8 +66,6 @@ const softDeleteArea = catchAsync(async (req: Request, res: Response) => {
     data: result,
   });
 });
-
-
 
 const getAllZones = catchAsync(async (req: Request, res: Response) => {
   const result = await GridServices.getAllZonesFromDB();
@@ -108,7 +106,6 @@ const getAllAreas = catchAsync(async (req: Request, res: Response) => {
     data: result,
   });
 });
-
 
 export const GridControllers = {
   createPowerAuthority,

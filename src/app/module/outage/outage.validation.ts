@@ -2,17 +2,29 @@ import { z } from "zod";
 
 const createScheduledOutageZodSchema = z.object({
   body: z.object({
-    feederId: z
+    areaId: z
       .string({
-        message: "Valid Feeder ID is required",
+        message: "Valid Area ID is required",
       })
-      .uuid("Invalid Feeder ID format"),
-    startTime: z.string({
-      message: "Start time is required (e.g., ISO string or HH:MM)",
-    }),
-    endTime: z.string({
-      message: "End time is required",
-    }),
+      .uuid("Invalid Area ID format"),
+    startTime: z
+      .string({
+        message: "Start time is required (ISO string format)",
+      })
+      .datetime({
+        message: "Start time must be a valid ISO 8601 date-time string",
+      }),
+    endTime: z
+      .string({
+        message: "End time is required (ISO string format)",
+      })
+      .datetime({
+        message: "End time must be a valid ISO 8601 date-time string",
+      }),
+    reason: z
+      .string()
+      .min(5, "Reason must be at least 5 characters long")
+      .optional(),
   }),
 });
 

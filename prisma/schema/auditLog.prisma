@@ -2,7 +2,7 @@ model AuditLog {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  action    String   // যেমন: "ASSIGN_TECHNICIAN", "RESOLVE_OUTAGE", "SOFT_DELETE_AREA"
+  action    String   
   details   String
   createdAt DateTime @default(now())
 

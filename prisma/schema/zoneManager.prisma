@@ -2,7 +2,6 @@ model ZoneManager {
   id           String            @id @default(uuid(7))
   officeRoomNo String?
   
-  // 📍 আইডি এবং রিলেশন অপtional করা হলো
   zoneId       String?           @unique
   zone         DistributionZone? @relation(fields: [zoneId], references: [id], onDelete: Cascade)
 

@@ -34,53 +34,46 @@ const softDeleteAreaFromDB = async (areaId: string) => {
     where: { id: areaId },
     data: {
       isDeleted: true,
-      deletedAt: new Date() 
+      deletedAt: new Date(),
     },
   });
 
   return result;
 };
 
-
-
-
 const getAllZonesFromDB = async () => {
   return await prisma.distributionZone.findMany({
     include: {
-      powerAuthority: true, // জোনের সাথে কোন অথরিটি তা দেখাবে
+      powerAuthority: true,
     },
   });
 };
 
-// ২. সব সাবস্টেশন তুলে আনা (জোন ও অথরিটিসহ)
 const getAllSubstationsFromDB = async () => {
   return await prisma.substation.findMany({
     include: {
       zone: {
-        include: { powerAuthority: true }
+        include: { powerAuthority: true },
       },
     },
   });
 };
 
-// ৩. সব ফিডার লাইন তুলে আনা
 const getAllFeedersFromDB = async () => {
   return await prisma.feeder.findMany({
     include: {
       substation: true,
       areas: {
-        where: { isDeleted: false } // শুধুমাত্র ডিলিট না হওয়া এরিয়া দেখাবে
-      }
+        where: { isDeleted: false },
+      },
     },
   });
 };
 
-// ৪. সব এরিয়া তুলে আনা (রোল ভিত্তিক ফিল্টারিং এর সুবিধার্থে)
 const getAllAreasFromDB = async (query: any) => {
   const { searchTerm, priority } = query;
   const whereConditions: Prisma.AreaWhereInput = { isDeleted: false };
 
-  // সার্চ টার্ম থাকলে নাম দিয়ে ফিল্টার
   if (searchTerm) {
     whereConditions.name = {
       contains: searchTerm,
@@ -88,21 +81,19 @@ const getAllAreasFromDB = async (query: any) => {
     };
   }
 
-  // প্রায়োরিটি (VIP/NORMAL) ফিল্টার
   if (priority) {
-    whereConditions.priority = priority; 
+    whereConditions.priority = priority;
   }
 
   return await prisma.area.findMany({
     where: whereConditions,
     include: {
       feeder: {
-        include: { substation: true }
+        include: { substation: true },
       },
     },
   });
 };
-
 
 export const GridServices = {
   createPowerAuthorityInDB,

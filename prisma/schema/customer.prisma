@@ -5,7 +5,6 @@ model Customer {
   balance       Float     @default(0.0)
   billingAddress String?
   
-  // 📍 আইডি এবং রিলেশন অপtional করা হলো
   areaId        String? 
   area          Area?     @relation(fields: [areaId], references: [id]) 
 
