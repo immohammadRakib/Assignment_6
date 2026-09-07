@@ -145,8 +145,8 @@ const createAreaZodSchema = z.object({
   name: z.string({
     message: "Area name is required",
   }),
-  priority: z.enum(["VIP", "HOSPITAL", "NORMAL"], {
-    message: "Priority must be VIP, HOSPITAL, or NORMAL",
+  priority: z.enum([ "CRITICAL_HOSPITAL" , "HIGH_VIP" , "MEDIUM_COMMERCIAL" , "LOW_RESIDENTIAL" ], {
+    message: "Priority must be CRITICAL_HOSPITAL, HIGH_VIP, MEDIUM_COMMERCIAL, or LOW_RESIDENTIAL",
   }),
   feederId: z
     .string({
