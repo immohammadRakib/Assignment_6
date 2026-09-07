@@ -84,20 +84,16 @@ const handleStripeCancel = catchAsync(async (req: Request, res: Response) => {
   `);
 });
 
-
 const getPaymentHistory = catchAsync(async (req: Request, res: Response) => {
-  // টোকেন থেকে রিয়াল-টাইম কনটেক্সট রিসিভ করা ⚡
   const loginUser = (req as any).user;
   const userId = (loginUser?.id || loginUser?.userId) as string;
   const role = loginUser?.role as string;
 
-  // কুয়েরি থেকে ফিল্টার আলাদা করা
   const filters = {
     searchTerm: req.query.searchTerm as string,
     status: req.query.status as string,
   };
 
-  // পেজিনেশন অপশন
   const options = {
     page: Number(req.query.page),
     limit: Number(req.query.limit),
@@ -105,12 +101,17 @@ const getPaymentHistory = catchAsync(async (req: Request, res: Response) => {
     sortOrder: req.query.sortOrder as string,
   };
 
-  const result = await WalletService.getPaymentHistoryFromDB(userId, role, filters, options);
+  const result = await WalletService.getPaymentHistoryFromDB(
+    userId,
+    role,
+    filters,
+    options,
+  );
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
-    message: "💳 Payment transaction history logs fetched successfully.",
+    message: " Payment transaction history logs fetched successfully.",
     data: result,
   });
 });
@@ -120,5 +121,5 @@ export const WalletController = {
   getMyBalance,
   handleStripeSuccess,
   handleStripeCancel,
-  getPaymentHistory
+  getPaymentHistory,
 };

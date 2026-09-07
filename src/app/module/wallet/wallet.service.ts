@@ -33,48 +33,6 @@ const getCustomerBalance = async (userId: string): Promise<IWalletResponse> => {
   };
 };
 
-// const rechargeMeterBalance = async (
-//   payload: IMeterRechargePayload,
-// ): Promise<IWalletResponse> => {
-//   const { userId, amount, meterNumber } = payload;
-
-//   if (amount <= 0) {
-//     throw new Error("Recharge amount must be greater than 0!");
-//   }
-
-//   return await prisma.$transaction(async (tx) => {
-//     const customer = await tx.customer.findUnique({
-//       where: { userId: userId },
-//     });
-
-//     if (!customer) {
-//       throw new Error("Customer profile not found for this user!");
-//     }
-
-//     if (customer.meterNumber && customer.meterNumber !== meterNumber) {
-//       throw new Error(
-//         "Meter number mismatch! This meter is not linked to your account.",
-//       );
-//     }
-
-//     const currentBalance = customer.balance || 0.0;
-//     const newBalance = currentBalance + amount;
-
-//     const updatedCustomer = await tx.customer.update({
-//       where: { id: customer.id },
-//       data: {
-//         balance: newBalance,
-//       },
-//     });
-
-//     return {
-//       success: true,
-//       message: `⚡ Recharge Successful! BDT/USD ${amount} added to your meter.`,
-//       balance: updatedCustomer.balance,
-//     };
-//   });
-// };
-
 const rechargeMeterBalance = async (
   payload: IMeterRechargePayload,
 ): Promise<IWalletResponse> => {
@@ -102,7 +60,6 @@ const rechargeMeterBalance = async (
     const currentBalance = customer.balance || 0.0;
     const newBalance = currentBalance + amount;
 
-    // ১. কাস্টমারের ব্যালেন্স আপডেট করা
     const updatedCustomer = await tx.customer.update({
       where: { id: customer.id },
       data: {
@@ -110,20 +67,19 @@ const rechargeMeterBalance = async (
       },
     });
 
-    // 💡 ২. পেমেন্ট টেবিলে ডাটা ইনসার্ট করা (এখানে আপনার স্কিমার কলামের নাম অনুযায়ী ফিল্ডগুলো পরিবর্তন করে নিবেন)
     await tx.payment.create({
       data: {
-        customerId: customer.id, // কাস্টমার টেবিলের প্রাইমারি ID
+        customerId: customer.id,
         amount: amount,
         status: "SUCCESS",
         provider: "STRIPE",
-        transactionId: "TXT_" + Date.now(), // সাময়িক ইউনিক আইডি (স্ট্রাইপ থেকে আসলে সেশন আইডি দিবেন)
+        transactionId: "TXT_" + Date.now(),
       },
     });
 
     return {
       success: true,
-      message: `⚡ Recharge Successful! BDT/USD ${amount} added to your meter.`,
+      message: `Recharge Successful! BDT/USD ${amount} added to your meter.`,
       balance: updatedCustomer.balance,
     };
   });
@@ -179,16 +135,14 @@ const getPaymentHistoryFromDB = async (
 
   const andConditions: Prisma.PaymentWhereInput[] = [];
 
-  // 🛡️ ১. রোল ভিত্তিক সিকিউরিটি ফিল্টার ফিক্স (customer এর পেটের ভেতর দিয়ে userId ম্যাচ করা)
   if (role === "CUSTOMER") {
     andConditions.push({
       customer: {
-        userId: userId, // 💡 সরাসরি টেবিলে না খুঁজে কাস্টমার রিলেশনের ভেতর দিয়ে ইউজার আইডি ট্র্যাক করা
+        userId: userId,
       },
     });
   }
 
-  // 🔍 ২. সার্চিং লজিক ফিক্স (সরাসরি টেবিলে ফিল্ড না থাকলে রিলেশন ফ্লো ব্যবহার করা)
   if (searchTerm) {
     andConditions.push({
       OR: [
@@ -196,8 +150,8 @@ const getPaymentHistoryFromDB = async (
         {
           customer: {
             OR: [
-              { meterNumber: { contains: searchTerm, mode: "insensitive" } }, // 💡 কাস্টমারের মিটার নম্বর
-              { user: { name: { contains: searchTerm, mode: "insensitive" } } }, // 💡 কাস্টমারের নাম
+              { meterNumber: { contains: searchTerm, mode: "insensitive" } },
+              { user: { name: { contains: searchTerm, mode: "insensitive" } } },
             ],
           },
         },
@@ -205,7 +159,6 @@ const getPaymentHistoryFromDB = async (
     });
   }
 
-  // 🗂️ ৩. স্ট্যাটাস ফিল্টারিং
   if (status) {
     andConditions.push({ status: status as any });
   }
@@ -213,7 +166,6 @@ const getPaymentHistoryFromDB = async (
   const whereConditions: Prisma.PaymentWhereInput =
     andConditions.length > 0 ? { AND: andConditions } : {};
 
-  // 👑 ৪. ডাটাবেস থেকে সর্টিং, পেজিনেশন ও টাইপ-সেফ include ফিক্স
   const data = await prisma.payment.findMany({
     where: whereConditions,
     skip: Number(skip),
@@ -231,7 +183,6 @@ const getPaymentHistoryFromDB = async (
     },
   });
 
-  // ৫. টোটাল কাউন্ট
   const total = await prisma.payment.count({ where: whereConditions });
 
   return {

@@ -1,7 +1,6 @@
 import app from "./app";
 import config from "./app/config";
 import { prisma } from "./app/lib/prisma";
-// import { seedSuperAdmin, seedTesterAdmin, seedTesterDoctor } from "./app/utils/seed";
 import { redisClient } from "./app/lib/redis";
 import { transporter } from "./app/lib/nodemailer";
 
@@ -25,7 +24,6 @@ const main = async () => {
 
       try {
       if (!redisClient.isOpen) {
-        // টাইমআউট বা ক্র্যাশ এড়াতে আমরা ৩ সেকেন্ডের একটি সেফটি চেক দিচ্ছি
         await Promise.race([
           redisClient.connect(),
           new Promise((_, reject) => setTimeout(() => reject(new Error("Redis connection timeout")), 3000))
@@ -35,7 +33,6 @@ const main = async () => {
         console.log("Redis connection already established background smoothly.");
       }
     } catch (redisError) {
-      // 💡 রেডিস কানেক্ট না হতে পারলেও সার্ভার ক্র্যাশ করবে না, ব্যাকএন্ড চালু থাকবে!
       console.error("⚠️ Redis connection failed or timeout, bypassing safely to keep server running.");
     }
 

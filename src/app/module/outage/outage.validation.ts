@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// ১. 👑 Scheduled Outage Create Validation (বডি অবজেক্ট কেটে ফ্ল্যাট করা হয়েছে)
 const createScheduledOutageZodSchema = z.object({
   areaId: z
     .string({
@@ -27,7 +26,6 @@ const createScheduledOutageZodSchema = z.object({
     .optional(),
 });
 
-// ২. 👑 Unexpected Outage Report Validation
 const reportUnexpectedOutageZodSchema = z.object({
   customerId: z
     .string({
@@ -48,7 +46,6 @@ const reportUnexpectedOutageZodSchema = z.object({
     .min(5, "Description must be at least 5 characters long"),
 });
 
-// ৩. 👑 Manual Technician Assignment Validation
 const assignTechnicianManuallyZodSchema = z.object({
   reportId: z
     .string({
@@ -62,29 +59,15 @@ const assignTechnicianManuallyZodSchema = z.object({
     .uuid("Invalid Technician ID format"),
 });
 
-// 💡 ৪. URL Parameter Validation এর জন্য বিশেষ দ্রষ্টব্য:
-// যেহেতু আপনার মিডলওয়্যার শুধুমাত্র req.body চেক করে, তাই URL Params (যেমন: /resolve/:reportId) 
-// ভ্যালিডেশনের জন্য মিডলওয়্যারে বডির বদলে req.params পাঠানো লাগবে, অথবা এটি স্কিমা ছাড়াই কন্ট্রোলার লেভেলে হ্যান্ডেল করা সেফ।
-// const resolveOutageJobZodSchema = z.object({
-//   reportId: z
-//     .string({
-//       message: "Report ID is required in URL parameter",
-//     })
-//     .uuid("Invalid Report ID format in URL parameter"),
-// });
-
 export const resolveOutageJobZodSchema = z.object({
-  // 💡 Zod-এ কাস্টম এরর মেসেজ দেওয়ার একদম সঠিক নিয়ম হলো সরাসরি 'message' প্রোপার্টি ব্যবহার করা
   notes: z
     .string({
-      message: "Notes must be a valid text string", // 👈 যেকোনো টাইপ এররের জন্য এটি কাজ করবে
+      message: "Notes must be a valid text string",
     })
-    .min(5, { 
-      message: "Notes must be at least 5 characters long" 
+    .min(5, {
+      message: "Notes must be at least 5 characters long",
     }),
-    // যদি টেকনিশিয়ানের জন্য নোটস দেওয়াটা অপশনাল রাখতে চান, তবে নিচে .optional() যুক্ত করতে পারেন
-});;
-
+});
 
 export const OutageValidations = {
   createScheduledOutageZodSchema,

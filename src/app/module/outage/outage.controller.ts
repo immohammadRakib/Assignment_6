@@ -57,23 +57,6 @@ const reportUnexpectedOutage = catchAsync(
   },
 );
 
-// const resolveOutageJob = catchAsync(async (req: Request, res: Response) => {
-//   const reportId = req.params.reportId as string;
-
-//   if (!reportId) {
-//     throw new Error("reportId is required in route parameter!");
-//   }
-
-//   const result = await OutageService.resolveOutageJob(reportId);
-
-//   sendResponse(res, {
-//     statusCode: 200,
-//     success: true,
-//     message: "Power grid supply restored and technician released successfully.",
-//     data: result,
-//   });
-// });
-
 const resolveOutageJob = catchAsync(async (req: Request, res: Response) => {
   const reportId = req.params.reportId as string;
 
@@ -90,7 +73,6 @@ const resolveOutageJob = catchAsync(async (req: Request, res: Response) => {
     data: result,
   });
 });
-
 
 const getMyAreaLiveStatus = catchAsync(async (req: Request, res: Response) => {
   const loginUser = (req as any).user;
@@ -128,8 +110,10 @@ const assignTechnicianManually = catchAsync(
     }
 
     if (!managerUserId) {
-    throw new Error("Authentication failed! Active user contexts are missing.");
-  }
+      throw new Error(
+        "Authentication failed! Active user contexts are missing.",
+      );
+    }
 
     const result = await OutageService.assignTechnicianManually(
       reportId,
@@ -148,14 +132,12 @@ const assignTechnicianManually = catchAsync(
 );
 
 const getAllTechnicians = catchAsync(async (req: Request, res: Response) => {
-  // কুয়েরি থেকে ফিল্টার আলাদা করা
   const filters = {
     searchTerm: req.query.searchTerm as string,
     status: req.query.status as string,
     zoneId: req.query.zoneId as string,
   };
 
-  // কুয়েরি থেকে পেজিনেশন অপশন আলাদা করা
   const options = {
     page: Number(req.query.page),
     limit: Number(req.query.limit),
@@ -193,7 +175,7 @@ const getAllOutageReports = catchAsync(async (req: Request, res: Response) => {
   );
 
   sendResponse(res, {
-    statusCode: 200,
+    statusCode: httpStatus.OK,
     success: true,
     message: "Outage complaint reports retrieved successfully.",
     data: result,
@@ -202,14 +184,14 @@ const getAllOutageReports = catchAsync(async (req: Request, res: Response) => {
 
 const softDeleteOutageReport = catchAsync(
   async (req: Request, res: Response) => {
-    const { reportId } = req.params; // URL থেকে টিকিট আইডি নেওয়া
+    const { reportId } = req.params;
 
     const result = await OutageService.softDeleteOutageReportFromDB(
       reportId as string,
     );
 
     sendResponse(res, {
-      statusCode: 200,
+      statusCode: httpStatus.OK,
       success: true,
       message: "Outage complaint report ticket soft deleted successfully.",
       data: result,
