@@ -30,11 +30,9 @@ app.use(
   }),
 );
 
-// Enable URL-encoded form data parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Middleware to parse JSON bodies
 app.use(cookieParser());
 
 app.use("/api/v1", globalApiRateLimiter);
