@@ -4,15 +4,15 @@ import { redisClient } from "../lib/redis";
 import { Request, Response } from "express";
 
 export const globalApiRateLimiter = rateLimit({
-  store: new RedisStore({
-    sendCommand: async (...args: string[]) => {
-      if (!redisClient.isOpen) {
-        await redisClient.connect();
-      }
-      return redisClient.sendCommand(args);
-    },
-    prefix: "rl:global:",
-  }),
+  // store: new RedisStore({
+  //   sendCommand: async (...args: string[]) => {
+  //     if (!redisClient.isOpen) {
+  //       await redisClient.connect();
+  //     }
+  //     return redisClient.sendCommand(args);
+  //   },
+  //   prefix: "rl:global:",
+  // }),
   windowMs: 1 * 60 * 1000,
   max: 60,
 
