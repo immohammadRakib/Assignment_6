@@ -74,14 +74,16 @@ const assignTechnicianManuallyZodSchema = z.object({
 // });
 
 export const resolveOutageJobZodSchema = z.object({
-  params: z.object({
-    reportId: z.string().uuid("Invalid Report ID format in URL parameter"),
-  }),
-  body: z.object({
-    notes: z.string().optional(),
-  }).optional(),
-});
-
+  // 💡 Zod-এ কাস্টম এরর মেসেজ দেওয়ার একদম সঠিক নিয়ম হলো সরাসরি 'message' প্রোপার্টি ব্যবহার করা
+  notes: z
+    .string({
+      message: "Notes must be a valid text string", // 👈 যেকোনো টাইপ এররের জন্য এটি কাজ করবে
+    })
+    .min(5, { 
+      message: "Notes must be at least 5 characters long" 
+    }),
+    // যদি টেকনিশিয়ানের জন্য নোটস দেওয়াটা অপশনাল রাখতে চান, তবে নিচে .optional() যুক্ত করতে পারেন
+});;
 
 
 export const OutageValidations = {

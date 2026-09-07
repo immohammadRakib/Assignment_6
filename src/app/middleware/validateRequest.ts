@@ -4,13 +4,9 @@ import { catchAsync } from "../utils/catchAsync";
 
 export const validateRequest = (zodSchema: z.ZodObject) => {
   return catchAsync((req: Request, res: Response, next: NextFunction) => {
-    // const payload = req.body ?? {};
+    const payload = req.body ?? {};
 
-    // const result = zodSchema.safeParse(payload);
-    const result = zodSchema.safeParse({
-      body: req.body,
-      params: req.params,
-    });
+    const result = zodSchema.safeParse(payload);
 
     if (!result.success) {
       console.log(result.error);
