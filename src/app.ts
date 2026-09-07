@@ -22,7 +22,6 @@ import { globalApiRateLimiter } from "./app/middleware/rateLimiter";
 const app: Application = express();
 
 app.set("trust proxy", true);
-app.use(express.json());
 
 app.use(
   cors({
@@ -32,6 +31,7 @@ app.use(
 );
 
 // Enable URL-encoded form data parsing
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Middleware to parse JSON bodies
