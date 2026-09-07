@@ -18,6 +18,7 @@ import { WalletRoutes } from "./app/module/wallet/wallet.route";
 import { AuditLogRoutes } from "./app/module/audit/auditLog.route";
 import { DashboardRoutes } from "./app/module/dashboard/dashboard.route";
 import { globalApiRateLimiter } from "./app/middleware/rateLimiter";
+import { landingPageTemplate } from "./app/templates/landingPage.template";
 
 const app: Application = express();
 
@@ -56,13 +57,6 @@ app.get("/test", async (req: Request, res: Response, next: NextFunction) => {
     // 100000 > 999999 > 1000000
     const otp = crypto.randomInt(100000, 1000000); // 1, 2, 3, 4, 5, 6,7,8 ,9, 10 => X-11
 
-    // await redisClient.set("forgot-password-otp:patient1@gmail.com", "123456", {
-    // 	expiration : {
-    // 		type : "EX",
-    // 		value : 60
-    // 	}
-    // })
-
     res.status(httpStatus.OK).json({
       success: true,
       message: "Welcome to Smart Power Grid Management System Backend",
@@ -78,7 +72,7 @@ app.get("/test", async (req: Request, res: Response, next: NextFunction) => {
 app.get("/", async (req: Request, res: Response) => {
   res.status(httpStatus.OK).json({
     success: true,
-    message: "Welcome to Smart Power Grid Management System Backend",
+    message: landingPageTemplate(),
   });
 });
 
