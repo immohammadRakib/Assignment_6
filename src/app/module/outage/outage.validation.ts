@@ -73,21 +73,15 @@ const assignTechnicianManuallyZodSchema = z.object({
 //     .uuid("Invalid Report ID format in URL parameter"),
 // });
 
-const resolveOutageJobZodSchema = z.object({
-  // 💡 জেড-কে বলে দেওয়া হচ্ছে আইডিটি URL 'params' এর ভেতর থাকবে
+export const resolveOutageJobZodSchema = z.object({
   params: z.object({
-    reportId: z
-      .string({
-        message: "Report ID is required in URL parameter",
-      })
-      .uuid("Invalid Report ID format in URL parameter"),
+    reportId: z.string().uuid("Invalid Report ID format in URL parameter"),
   }),
-  
-  // 💡 যদি বডি থেকে নোটস বা কোনো ডাটা নিতে চান
   body: z.object({
-    notes: z.string().min(5, "Notes must be at least 5 characters long").optional(),
+    notes: z.string().optional(),
   }).optional(),
 });
+
 
 
 export const OutageValidations = {
