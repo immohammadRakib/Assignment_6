@@ -21,9 +21,8 @@ import { globalApiRateLimiter } from "./app/middleware/rateLimiter";
 
 const app: Application = express();
 
-app.use(express.json());
-
 app.set("trust proxy", true);
+app.use(express.json());
 
 app.use(
   cors({
