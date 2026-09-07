@@ -18,11 +18,16 @@ export const globalApiRateLimiter = rateLimit({
 
   keyGenerator: (req: Request): string => {
     const ip =
-      (req.headers["x-forwarded-for"] as string) || req.ip || "unknown-ip";
+      (req.headers["x-forwarded-for"] as string) || req.ip || "127.0.0.1";
     if (ip === "::1" || ip === "::ffff:127.0.0.1") {
       return "127.0.0.1";
     }
     return ip;
+  },
+
+  validate: {
+    xForwardedForHeader: false,
+    default: false,
   },
 
   handler: (req: Request, res: Response) => {
