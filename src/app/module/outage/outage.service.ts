@@ -137,8 +137,194 @@ const getAllScheduledOutagesFromDB = async (query: any) => {
 };
 
 
+// const reportUnexpectedOutage = async (payload: any): Promise<any> => {
+//   const { customerId, areaId, description } = payload;
+
+//   const existingActiveOutage = await prisma.outage.findFirst({
+//     where: {
+//       areaId,
+//       type: OutageType.UNEXPECTED,
+//       status: {
+//         in: [
+//           OutageStatus.PENDING,
+//           OutageStatus.ACTIVE,
+//           OutageStatus.ASSIGNED,
+//           OutageStatus.REPAIRING,
+//         ],
+//       },
+//     },
+//   });
+
+//   if (existingActiveOutage) {
+//     const newReport = await prisma.outageReport.create({
+//       data: {
+//         customerId,
+//         description: description || "Reported same outage by another customer.",
+//         status: OutageStatus.PENDING,
+//       },
+//     });
+
+//     return {
+//       message:
+//         "This outage is already acknowledged by the system. Your report has been logged.",
+//       outage: existingActiveOutage,
+//       report: newReport,
+//     };
+//   }
+
+//   return await prisma.$transaction(async (tx) => {
+//     const newOutage = await tx.outage.create({
+//       data: {
+//         areaId,
+//         type: OutageType.UNEXPECTED,
+//         status: OutageStatus.PENDING,
+//         reason: "Unexpected Grid/Transformer Breakdown",
+//         startTime: new Date(),
+//         endTime: new Date(Date.now() + 60 * 60 * 1000),
+//       },
+//     });
+
+//     const targetArea = await tx.area.findUnique({
+//       where: { id: areaId },
+//       include: {
+//         feeder: {
+//           include: {
+//             substation: {
+//               select: { zoneId: true },
+//             },
+//           },
+//         },
+//       },
+//     });
+
+//     const zoneId = targetArea?.feeder?.substation?.zoneId;
+//     let assignedTechId = null;
+//     let ticketStatus: OutageStatus = OutageStatus.PENDING;
+
+//     if (zoneId) {
+//       const availableTech = await tx.technician.findFirst({
+//         where: {
+//           zoneId,
+//           status: TechnicianStatus.AVAILABLE,
+//         },
+//       });
+
+//       if (availableTech) {
+//         assignedTechId = availableTech.id;
+//         ticketStatus = OutageStatus.ASSIGNED;
+
+//         await tx.technician.update({
+//           where: { id: availableTech.id },
+//           data: { status: TechnicianStatus.ON_DUTY },
+//         });
+
+//         await tx.outage.update({
+//           where: { id: newOutage.id },
+//           data: { status: OutageStatus.ASSIGNED },
+//         });
+//       }
+//     }
+
+//     const customerReport = await tx.outageReport.create({
+//       data: {
+//         customerId,
+//         description:
+//           description || "Power Outage/Transformer Breakdown Reported.",
+//         status: ticketStatus,
+//         technicianId: assignedTechId,
+//       },
+//     });
+
+//     if (!assignedTechId) {
+//       await tx.outage.update({
+//         where: { id: newOutage.id },
+//         data: { status: OutageStatus.ACTIVE },
+//       });
+//     }
+
+//     return {
+//       success: true,
+//       message: assignedTechId
+//         ? "Emergency Outage registered and technician successfully auto-dispatched!"
+//         : "Outage registered. No free technician in this zone, queued for manual dispatch.",
+//       outage: newOutage,
+//       report: customerReport,
+//     };
+//   });
+// };
+
+// const resolveOutageJob = async (reportId: string): Promise<any> => {
+//   return await prisma.$transaction(async (tx) => {
+//     const report = await tx.outageReport.findUnique({
+//       where: { id: reportId },
+//     });
+
+//     if (!report) {
+//       throw new Error("Complaint report ticket not found!");
+//     }
+
+//     if (report.status === OutageStatus.RESTORED) {
+//       throw new Error("This job is already resolved!");
+//     }
+
+//     const updatedReport = await tx.outageReport.update({
+//       where: { id: reportId },
+//       data: {
+//         status: OutageStatus.RESTORED,
+//       },
+//     });
+
+//     if (report.technicianId) {
+//       await tx.technician.update({
+//         where: { id: report.technicianId },
+//         data: {
+//           status: TechnicianStatus.AVAILABLE,
+//         },
+//       });
+//     }
+
+//     if ((report as any).outageId) {
+//       await tx.outage.update({
+//         where: { id: (report as any).outageId },
+//         data: {
+//           status: OutageStatus.RESTORED,
+//           endTime: new Date(),
+//         },
+//       });
+//     }
+
+//     return {
+//       success: true,
+//       message:
+//         " Power Restored successfully! Job resolved directly via report ticket.",
+//       report: updatedReport,
+//     };
+//   });
+// };
+
 const reportUnexpectedOutage = async (payload: any): Promise<any> => {
   const { customerId, areaId, description } = payload;
+
+  // 💡 ১. ডাটাবেজে এই কাস্টমার আসলেই আছে কি না তা আগে নিশ্চিত হওয়া
+  // যদি আপনার ফ্রন্টএন্ড/পোস্টম্যান থেকে 'userId' পাঠানো হয়ে থাকে, তবে এখানে userId দিয়ে খুঁজুন
+  let customer = await prisma.customer.findUnique({
+    where: { id: customerId }, // অথবা where: { userId: customerId } যদি userId পাঠানো হয়
+  });
+
+  // যদি প্রাইমারি আইডি দিয়ে না পাওয়া যায়, তবে userId দিয়েও একবার চেক করে ব্যাকআপ নেওয়া
+  if (!customer) {
+    customer = await prisma.customer.findUnique({
+      where: { userId: customerId },
+    });
+  }
+
+  // যদি কোনোভাবেই কাস্টমার না পাওয়া যায়, তবে ফরেন কি এরর দেওয়ার আগেই সুন্দর মেসেজ থ্রো করা
+  if (!customer) {
+    throw new Error("❌ Invalid Customer! No customer profile found with the provided ID.");
+  }
+
+  // 💡 এখন আমরা নিশ্চিত ডাটাবেজের আসল কাস্টমার আইডি আমাদের হাতে আছে (customer.id)
+  const actualCustomerId = customer.id;
 
   const existingActiveOutage = await prisma.outage.findFirst({
     where: {
@@ -158,7 +344,7 @@ const reportUnexpectedOutage = async (payload: any): Promise<any> => {
   if (existingActiveOutage) {
     const newReport = await prisma.outageReport.create({
       data: {
-        customerId,
+        customerId: actualCustomerId, // 👈 আসল আইডি ব্যবহার করা হলো
         description: description || "Reported same outage by another customer.",
         status: OutageStatus.PENDING,
       },
@@ -227,7 +413,7 @@ const reportUnexpectedOutage = async (payload: any): Promise<any> => {
 
     const customerReport = await tx.outageReport.create({
       data: {
-        customerId,
+        customerId: actualCustomerId, // 👈 আসল আইডি ব্যবহার করা হলো
         description:
           description || "Power Outage/Transformer Breakdown Reported.",
         status: ticketStatus,
@@ -253,54 +439,6 @@ const reportUnexpectedOutage = async (payload: any): Promise<any> => {
   });
 };
 
-// const resolveOutageJob = async (reportId: string): Promise<any> => {
-//   return await prisma.$transaction(async (tx) => {
-//     const report = await tx.outageReport.findUnique({
-//       where: { id: reportId },
-//     });
-
-//     if (!report) {
-//       throw new Error("Complaint report ticket not found!");
-//     }
-
-//     if (report.status === OutageStatus.RESTORED) {
-//       throw new Error("This job is already resolved!");
-//     }
-
-//     const updatedReport = await tx.outageReport.update({
-//       where: { id: reportId },
-//       data: {
-//         status: OutageStatus.RESTORED,
-//       },
-//     });
-
-//     if (report.technicianId) {
-//       await tx.technician.update({
-//         where: { id: report.technicianId },
-//         data: {
-//           status: TechnicianStatus.AVAILABLE,
-//         },
-//       });
-//     }
-
-//     if ((report as any).outageId) {
-//       await tx.outage.update({
-//         where: { id: (report as any).outageId },
-//         data: {
-//           status: OutageStatus.RESTORED,
-//           endTime: new Date(),
-//         },
-//       });
-//     }
-
-//     return {
-//       success: true,
-//       message:
-//         " Power Restored successfully! Job resolved directly via report ticket.",
-//       report: updatedReport,
-//     };
-//   });
-// };
 
 const resolveOutageJob = async (reportId: string): Promise<IOutageResolveResponse> => {
   return await prisma.$transaction(async (tx) => {
