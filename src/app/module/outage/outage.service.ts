@@ -440,9 +440,8 @@ const reportUnexpectedOutage = async (payload: any): Promise<any> => {
 };
 
 
-const resolveOutageJob = async (reportId: string): Promise<IOutageResolveResponse> => {
+const resolveOutageJob = async (reportId: string, payload: { notes?: string }): Promise<IOutageResolveResponse> => {
   return await prisma.$transaction(async (tx) => {
-    // ১. রিপোর্টটি খোঁজা (🛡️ টাইপ সেফটির জন্য outageId স্কিমা অনুযায়ী select বা include করে নেওয়া ভালো)
     const report = await tx.outageReport.findUnique({
       where: { id: reportId },
     });
@@ -451,16 +450,23 @@ const resolveOutageJob = async (reportId: string): Promise<IOutageResolveRespons
       throw new Error("Complaint report ticket not found!");
     }
 
-    // ২. অলরেডি রিস্টোর্ডড বা রিজলভড কিনা চেক করা
     if (report.status === OutageStatus.RESTORED) {
       throw new Error("This job is already resolved!");
     }
 
     // ৩. আউটেজ রিপোর্টের স্ট্যাটাস RESTORED করা
-    const updatedReport = await tx.outageReport.update({
+    // const updatedReport = await tx.outageReport.update({
+    //   where: { id: reportId },
+    //   data: {
+    //     status: OutageStatus.RESTORED,
+    //   },
+    // });
+
+      const updatedReport = await tx.outageReport.update({
       where: { id: reportId },
       data: {
-        status: OutageStatus.RESTORED,
+        status: OutageStatus.RESTORED, // আপনার স্কিমা অনুযায়ী
+        notes: payload.notes || "Resolved successfully by the technical team.", // 👈 এই লাইনটি চেক করুন
       },
     });
 

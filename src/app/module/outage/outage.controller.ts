@@ -57,6 +57,23 @@ const reportUnexpectedOutage = catchAsync(
   },
 );
 
+// const resolveOutageJob = catchAsync(async (req: Request, res: Response) => {
+//   const reportId = req.params.reportId as string;
+
+//   if (!reportId) {
+//     throw new Error("reportId is required in route parameter!");
+//   }
+
+//   const result = await OutageService.resolveOutageJob(reportId);
+
+//   sendResponse(res, {
+//     statusCode: 200,
+//     success: true,
+//     message: "Power grid supply restored and technician released successfully.",
+//     data: result,
+//   });
+// });
+
 const resolveOutageJob = catchAsync(async (req: Request, res: Response) => {
   const reportId = req.params.reportId as string;
 
@@ -64,15 +81,16 @@ const resolveOutageJob = catchAsync(async (req: Request, res: Response) => {
     throw new Error("reportId is required in route parameter!");
   }
 
-  const result = await OutageService.resolveOutageJob(reportId);
+  const result = await OutageService.resolveOutageJob(reportId, req.body);
 
   sendResponse(res, {
-    statusCode: 200,
+    statusCode: httpStatus.OK,
     success: true,
     message: "Power grid supply restored and technician released successfully.",
     data: result,
   });
 });
+
 
 const getMyAreaLiveStatus = catchAsync(async (req: Request, res: Response) => {
   const loginUser = (req as any).user;
