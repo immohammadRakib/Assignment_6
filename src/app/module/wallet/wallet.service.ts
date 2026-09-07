@@ -1,5 +1,9 @@
 import { prisma } from "../../lib/prisma";
-import { IMeterRechargePayload, IPaymentFilterableFields, IWalletResponse } from "./wallet.interface";
+import {
+  IMeterRechargePayload,
+  IPaymentFilterableFields,
+  IWalletResponse,
+} from "./wallet.interface";
 import Stripe from "stripe";
 import config from "../../config";
 import { Prisma } from "../../../generated/prisma/browser";
@@ -29,6 +33,48 @@ const getCustomerBalance = async (userId: string): Promise<IWalletResponse> => {
   };
 };
 
+// const rechargeMeterBalance = async (
+//   payload: IMeterRechargePayload,
+// ): Promise<IWalletResponse> => {
+//   const { userId, amount, meterNumber } = payload;
+
+//   if (amount <= 0) {
+//     throw new Error("Recharge amount must be greater than 0!");
+//   }
+
+//   return await prisma.$transaction(async (tx) => {
+//     const customer = await tx.customer.findUnique({
+//       where: { userId: userId },
+//     });
+
+//     if (!customer) {
+//       throw new Error("Customer profile not found for this user!");
+//     }
+
+//     if (customer.meterNumber && customer.meterNumber !== meterNumber) {
+//       throw new Error(
+//         "Meter number mismatch! This meter is not linked to your account.",
+//       );
+//     }
+
+//     const currentBalance = customer.balance || 0.0;
+//     const newBalance = currentBalance + amount;
+
+//     const updatedCustomer = await tx.customer.update({
+//       where: { id: customer.id },
+//       data: {
+//         balance: newBalance,
+//       },
+//     });
+
+//     return {
+//       success: true,
+//       message: `⚡ Recharge Successful! BDT/USD ${amount} added to your meter.`,
+//       balance: updatedCustomer.balance,
+//     };
+//   });
+// };
+
 const rechargeMeterBalance = async (
   payload: IMeterRechargePayload,
 ): Promise<IWalletResponse> => {
@@ -56,10 +102,22 @@ const rechargeMeterBalance = async (
     const currentBalance = customer.balance || 0.0;
     const newBalance = currentBalance + amount;
 
+    // ১. কাস্টমারের ব্যালেন্স আপডেট করা
     const updatedCustomer = await tx.customer.update({
       where: { id: customer.id },
       data: {
         balance: newBalance,
+      },
+    });
+
+    // 💡 ২. পেমেন্ট টেবিলে ডাটা ইনসার্ট করা (এখানে আপনার স্কিমার কলামের নাম অনুযায়ী ফিল্ডগুলো পরিবর্তন করে নিবেন)
+    await tx.payment.create({
+      data: {
+        customerId: customer.id, // কাস্টমার টেবিলের প্রাইমারি ID
+        amount: amount,
+        status: "SUCCESS",
+        provider: "STRIPE",
+        transactionId: "TXT_" + Date.now(), // সাময়িক ইউনিক আইডি (স্ট্রাইপ থেকে আসলে সেশন আইডি দিবেন)
       },
     });
 
@@ -109,15 +167,15 @@ const createCheckoutSession = async (
   };
 };
 
-
 const getPaymentHistoryFromDB = async (
   userId: string,
   role: string,
   filters: IPaymentFilterableFields,
-  options: any
+  options: any,
 ) => {
   const { searchTerm, status } = filters;
-  const { page, limit, skip, sortBy, sortOrder } = paginationHelper.calculatePagination(options);
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelper.calculatePagination(options);
 
   const andConditions: Prisma.PaymentWhereInput[] = [];
 
@@ -139,10 +197,10 @@ const getPaymentHistoryFromDB = async (
           customer: {
             OR: [
               { meterNumber: { contains: searchTerm, mode: "insensitive" } }, // 💡 কাস্টমারের মিটার নম্বর
-              { user: { name: { contains: searchTerm, mode: "insensitive" } } }  // 💡 কাস্টমারের নাম
-            ]
-          }
-        }
+              { user: { name: { contains: searchTerm, mode: "insensitive" } } }, // 💡 কাস্টমারের নাম
+            ],
+          },
+        },
       ],
     });
   }
@@ -160,14 +218,15 @@ const getPaymentHistoryFromDB = async (
     where: whereConditions,
     skip: Number(skip),
     take: Number(limit),
-    orderBy: sortBy && sortOrder ? { [sortBy]: sortOrder } : { createdAt: "desc" },
+    orderBy:
+      sortBy && sortOrder ? { [sortBy]: sortOrder } : { createdAt: "desc" },
     include: {
-      customer: { 
+      customer: {
         include: {
           user: {
             select: { name: true, email: true },
-          }
-        }
+          },
+        },
       },
     },
   });
