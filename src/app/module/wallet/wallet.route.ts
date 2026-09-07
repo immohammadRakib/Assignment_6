@@ -18,7 +18,7 @@ router.post(
 
 router.get(
   "/stripe-success",
-  validateRequest(WalletValidations.stripeCallbackZodSchema),
+  // validateRequest(WalletValidations.stripeCallbackZodSchema),
   WalletController.handleStripeSuccess,
 );
 
